@@ -24,7 +24,6 @@ jobs:
       matrix:
         target: [feature, preview]
     env:
-      ZENZ_MODEL_CACHE_DIR: ${{ runner.temp }}/zenz-model-cache
       ZENZ_DEBUG_NATIVE_ABIS: arm64-v8a
       ZENZ_RELEASE_NATIVE_ABIS: arm64-v8a,x86_64
     steps:
@@ -43,6 +42,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "platforms;android-36" "build-tools;36.0.0" \
             "ndk;29.0.14206865" "cmake;3.22.1"

@@ -1,6 +1,6 @@
 # Sumire development fork
 
-Status: local implementation prepared; GitHub publication, Android compilation and CI are pending.
+Status: feature and Preview branches published; Android compilation and CI validation are in progress.
 Do not treat these source changes as a verified daily build yet.
 
 ## Repositories and branches
@@ -104,8 +104,10 @@ a downgrade or uninstall to bypass a failed compatibility check.
 
 ## Outstanding verification
 
-At preparation time, connector write returned GitHub 403; local Gradle distribution
-fetch returned Network is unreachable. No CI run ID or APK exists for this migration.
+Initial connector access returned GitHub 403; the owner restored access and both branches
+were published. Local Gradle distribution fetch returned Network is unreachable.
+Initial CI run 35031841016 failed workflow validation before allocating any jobs; runner
+context use was moved from job env into a runner step. Android verification is pending.
 All Android/Robolectric tests, manifest merge, release optimization, full native builds,
 actual signed A -> B update and data retention remain unverified. Update this status
 with exact commit/run IDs after access is restored and CI completes.
