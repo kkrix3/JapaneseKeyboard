@@ -87,6 +87,33 @@ class DoubleTapActionDispatcherTest {
         assertEquals(emptyList<KeyAction>(), dispatched)
     }
 
+    @Test
+    fun exclusiveTap_preservesOriginalDeliveryCallbackAcrossAnotherKey() {
+        val deliveries = mutableListOf<String>()
+        val binding = DoubleTapBinding(KeyAction.Copy, DoubleTapPolicy.EXCLUSIVE)
+        dispatcher.onCommittedTap("select", KeyAction.SelectAll, binding) {
+            deliveries += "original:$it"
+        }
+        now = 100
+        dispatcher.onCommittedTap("space", KeyAction.Space, null) {
+            deliveries += "next:$it"
+        }
+        scheduler.runDueAt(500)
+        assertEquals(listOf("original:SelectAll", "next:Space"), deliveries)
+        assertEquals(emptyList<KeyAction>(), dispatched)
+    }
+
+    @Test
+    fun exclusiveTap_timeoutUsesItsOwnDeliveryCallback() {
+        val deliveries = mutableListOf<KeyAction>()
+        val binding = DoubleTapBinding(KeyAction.Copy, DoubleTapPolicy.EXCLUSIVE)
+        dispatcher.onCommittedTap("select", KeyAction.SelectAll, binding, deliveries::add)
+        assertEquals(emptyList<KeyAction>(), deliveries)
+        scheduler.runDueAt(300)
+        assertEquals(listOf(KeyAction.SelectAll), deliveries)
+        assertEquals(emptyList<KeyAction>(), dispatched)
+    }
+
     private class FakeScheduler(
         private val clock: () -> Long
     ) : TapTaskScheduler {

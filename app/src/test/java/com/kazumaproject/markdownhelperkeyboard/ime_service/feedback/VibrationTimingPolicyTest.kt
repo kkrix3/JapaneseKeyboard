@@ -54,6 +54,22 @@ class VibrationTimingPolicyTest {
     }
 
     @Test
+    fun customPreferenceLeavesLegacyVibrationPathDisabled() {
+        assertFalse(
+            VibrationTimingPolicy.shouldVibrate(
+                rawPreferenceValue = "custom",
+                moment = VibrationFeedbackMoment.PRESS
+            )
+        )
+        assertFalse(
+            VibrationTimingPolicy.shouldVibrate(
+                rawPreferenceValue = "custom",
+                moment = VibrationFeedbackMoment.RELEASE
+            )
+        )
+    }
+
+    @Test
     fun nullPreferenceDoesNotVibrate() {
         assertFalse(
             VibrationTimingPolicy.shouldVibrate(
