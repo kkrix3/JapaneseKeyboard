@@ -1,10 +1,12 @@
 # Draft: configurable haptic waveforms at committed input boundaries
 
 Status: reusable proposal draft only. Not submitted as an Issue/PR. The migrated feature
-has not yet passed Android compilation/CI or device validation; do not submit as verified.
+has passed the Full Debug build and targeted regression tests; device validation is pending.
 
 Target: KazumaProject/JapaneseKeyboard:dev
-Proposed source: kkrix3/JapaneseKeyboard:feature/custom-haptics (publication pending)
+Proposed source: [kkrix3/JapaneseKeyboard:feature/custom-haptics](https://github.com/kkrix3/JapaneseKeyboard/tree/feature/custom-haptics)
+
+[Feature diff](https://github.com/kkrix3/JapaneseKeyboard/compare/dev...feature/custom-haptics)
 
 ## Why
 
@@ -60,14 +62,13 @@ system touch mode is silent. The media option remains subject to device policy.
 
 ## Prior PoC observations (user-reported, not measurements of this migrated build)
 
-Short pulse duration/amplitude and gaps were distinguishable. Two pulses about 20ms apart
-were distinguishable at the fingertip; about 30ms apart were distinguishable while holding
-the phone, and 20/25ms differences were noticed. Weak/strong ordering was distinguishable.
-The test utility reported predefined Tick/Click/Heavy Click support and no primitive
-support. This must not be generalized to every device or treated as proof of all amplitude
-capabilities. Very short strong-to-weak sequences showed history dependence on a tested
-device; appending raw (1ms,32) after the strong pulse sometimes stabilized the next weak
-pulse. That observation motivates user control, not automatic correction.
+The user reports a working PoC tested on a physical device. Very short strong-to-weak
+sequences showed history dependence on a tested device; appending raw (1ms,32) after
+the strong pulse sometimes stabilized the next weak pulse. That observation motivates
+user control, not automatic correction. This port has no newly collected device measurements.
+Before submission, record the device/Android version, pulse duration, amplitude, gap,
+two-pulse distinguishability, amplitude-control capability and predefined/primitive support.
+Do not infer universal device behavior or measured timing thresholds from the defaults.
 
 ## Tests and evidence still needed
 
@@ -78,7 +79,10 @@ existing settings backup round-trip. Existing custom_keyboard tests run alongsid
 New backup tests exercise the upstream exporter/importer across independent preference
 namespaces and all supported types. No backup production format or DB schema is changed.
 
-CI: pending (no run ID yet). Actual hardware validation: pending; see MIGRATION.md.
+CI: [run 35032069860](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35032069860),
+feature commit d0acb1ef3002c59adbe513548b9224b357eb65be. Full Standard Debug,
+custom_keyboard tests and selected Full app regression/backup tests passed.
+Actual hardware validation: pending; see MIGRATION.md.
 Before opening a draft PR, attach successful Full build/test run links and device results.
 The feature branch must contain no applicationId, Preview label, signing, fork workflow or
 release changes. Those are isolated on preview and must not be included in the proposed diff.

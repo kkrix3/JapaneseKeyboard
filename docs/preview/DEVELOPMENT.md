@@ -1,7 +1,8 @@
 # Sumire development fork
 
-Status: feature and Preview branches published; Android compilation and CI validation are in progress.
-Do not treat these source changes as a verified daily build yet.
+Status: feature and Preview branches published. Full Debug and unsigned Full Preview builds,
+custom_keyboard tests and selected Full app regressions passed in CI run 35032069860.
+Signing and physical-device validation are pending; see STATUS-ja.md and SIGNING.md.
 
 ## Repositories and branches
 
@@ -102,12 +103,23 @@ workflow run. Preserve this epoch, package name and signer for the lifetime of P
 Before installation, verify_update_pair.py checks the actual pair of APKs; never force
 a downgrade or uninstall to bypass a failed compatibility check.
 
-## Outstanding verification
+## Verification and remaining work
 
-Initial connector access returned GitHub 403; the owner restored access and both branches
-were published. Local Gradle distribution fetch returned Network is unreachable.
-Initial CI run 35031841016 failed workflow validation before allocating any jobs; runner
-context use was moved from job env into a runner step. Android verification is pending.
-All Android/Robolectric tests, manifest merge, release optimization, full native builds,
-actual signed A -> B update and data retention remain unverified. Update this status
-with exact commit/run IDs after access is restored and CI completes.
+[CI run 35032069860](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35032069860)
+succeeded on Preview commit `211feb89953a5f103b8757c8de744e93d388c5ab` and feature commit
+`d0acb1ef3002c59adbe513548b9224b357eb65be`. Both jobs passed custom_keyboard tests and the
+selected Full app regression/backup tests. Full Debug and unsigned release-style Full
+Preview builds succeeded. Preview package, versionCode 211675206, label, non-debuggable
+flag, alignment, unsigned state, ARM64 libraries and bundled Zenz model passed inspection.
+Test reports and both APK artifacts are available in that run for 14 days.
+
+The initial run 35031841016 failed workflow validation before allocating jobs. Moving
+runner context usage from job env into a runner step resolved it. Local Gradle fetching
+was network-blocked; the Android results above are from GitHub-hosted runners.
+
+A post-build commit updates documentation and corrects the signing-only ZIP filename
+exclusion regex. Its six forbidden and three allowed filename checks passed locally;
+no application or APK-producing build code changed after the successful run. Signing
+was skipped by design. User-managed Environment setup, signed A -> B installation,
+data retention, actual official Full backup restoration and hardware haptics/full-feature
+behavior still require verification. No persistent signing secret was handled by Work.

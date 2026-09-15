@@ -28,9 +28,9 @@ the latest v4 parser, the legacy formats, validation and stable-ID import behavi
 renumber a v4 file to 3 for migration into this new Preview: retain its actual semantics.
 
 No real official-installed APK/settings backup has been imported into a Preview APK yet.
-Robolectric tests have been authored for separate preference namespaces, supported types,
-unknown keys/types and waveform round-trip; their execution is pending CI. This source
-analysis is not an end-to-end migration success claim.
+Robolectric tests passed on both feature and Preview in CI run 35032069860 for separate
+preference namespaces, supported types, unknown keys/types and waveform round-trip.
+This automated compatibility check is not an end-to-end device migration success claim.
 
 ## What needs a separate export
 

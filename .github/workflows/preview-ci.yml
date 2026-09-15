@@ -157,7 +157,7 @@ jobs:
           assert f"name='{meta['applicationId']}'" in badging.splitlines()[0]
           assert f"versionCode='{meta['versionCode']}'" in badging.splitlines()[0]
           with zipfile.ZipFile(apk) as z:
-              assert not any(re.search(r"(?i)(keystore|\\.(jks|p12|pfx|pem|key)$|local\\.properties$)", n) for n in z.namelist())
+              assert not any(re.search(r"(?i)(keystore|\.(jks|p12|pfx|pem|key)$|local\.properties$)", n) for n in z.namelist())
           PY
       - name: Sign with user-managed Environment secrets
         id: signing
