@@ -1,0 +1,21 @@
+<resources>
+    <string name="haptic_normal">Normal flick</string>
+    <string name="haptic_two_step">Two-step flick</string>
+    <string name="haptic_special">Special keys</string>
+    <string name="haptic_editor_help">Up to 10 steps: duration ms / amplitude (0–255). Amplitude 0 is a gap. Changes apply when saved. Preview respects the vibration switches.</string>
+    <string name="haptic_add_custom">Custom — add step</string>
+    <string name="haptic_clear">Clear all</string>
+    <string name="haptic_reset">Reset to defaults</string>
+    <string name="haptic_preview">Test playback</string>
+    <string name="haptic_save">Save</string>
+    <string name="haptic_edit">Edit</string>
+    <string name="haptic_delete">Delete</string>
+    <string name="haptic_empty">No steps (silent)</string>
+    <string name="haptic_duration">Duration (ms, 0 or greater)</string>
+    <string name="haptic_amplitude">Amplitude (0–255; 0 = gap)</string>
+    <string name="haptic_duration_error">Enter a nonnegative whole number</string>
+    <string name="haptic_amplitude_error">Enter a whole number from 0 to 255</string>
+    <string name="haptic_media">Play as media haptics</string>
+    <string name="haptic_media_summary">Use media vibration settings instead of touch feedback settings. Device media policies still apply.</string>
+    <string name="haptic_pattern_summary">Edit the custom waveform used in custom input mode</string>
+</resources>

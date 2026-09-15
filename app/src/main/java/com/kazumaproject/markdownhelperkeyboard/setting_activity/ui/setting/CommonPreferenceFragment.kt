@@ -386,6 +386,7 @@ open class CommonPreferenceFragment : PreferenceFragmentCompat() {
         val guidePreferences = androidx.preference.PreferenceManager.getDefaultSharedPreferences(requireContext())
         val guideSettings = com.kazumaproject.markdownhelperkeyboard.ime_service.composing_guide.ComposingGuideSettings(guidePreferences)
         setPreferencesFromResource(preferencesXmlRes, rootKey)
+        CustomHapticSettings.bind(this)
         fun updateGuideModeEnabled(text: Boolean = guideSettings.textEnabled, candidates: Boolean = guideSettings.enabled) {
             findPreference<ListPreference>("composing_guide_display_mode")?.isEnabled = text && candidates
         }

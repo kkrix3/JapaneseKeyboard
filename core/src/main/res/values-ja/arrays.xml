@@ -16,12 +16,14 @@
         <item>キー押下時</item>
         <item>キーリリース時</item>
         <item>両方</item>
+        <item>カスタム波形（入力時）</item>
     </string-array>
 
     <string-array name="vibration_values">
         <item>press</item>
         <item>release</item>
         <item>both</item>
+        <item>custom</item>
     </string-array>
 
     <string-array name="sumire_keyboard_style_options">

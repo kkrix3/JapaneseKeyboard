@@ -786,6 +786,28 @@
             android:title="@string/vibration_timing_title" />
 
         <Preference
+            android:key="custom_haptic_pattern_normal_flick"
+            android:title="@string/haptic_normal"
+            android:summary="@string/haptic_pattern_summary" />
+
+        <Preference
+            android:key="custom_haptic_pattern_two_step_flick"
+            android:title="@string/haptic_two_step"
+            android:summary="@string/haptic_pattern_summary" />
+
+        <Preference
+            android:key="custom_haptic_pattern_special_key"
+            android:title="@string/haptic_special"
+            android:summary="@string/haptic_pattern_summary" />
+
+        <SwitchPreferenceCompat
+            android:key="custom_haptic_media_usage"
+            android:defaultValue="false"
+            android:dependency="vibration_preference"
+            android:title="@string/haptic_media"
+            android:summary="@string/haptic_media_summary" />
+
+        <Preference
             android:key="long_press_timeout_preference"
             android:summary="@string/long_press_timeout_preference_summary"
             android:title="@string/long_press_timeout_preference_title" />

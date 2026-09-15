@@ -1,0 +1,21 @@
+<resources>
+    <string name="haptic_normal">通常フリック</string>
+    <string name="haptic_two_step">2段フリック</string>
+    <string name="haptic_special">特殊キー</string>
+    <string name="haptic_editor_help">最大10ステップ：時間 ms / 振幅（0〜255）。振幅0は休止です。「保存」で反映します。試し再生も振動のON/OFF設定に従います。</string>
+    <string name="haptic_add_custom">Custom：ステップ追加</string>
+    <string name="haptic_clear">全消去</string>
+    <string name="haptic_reset">初期値に戻す</string>
+    <string name="haptic_preview">試し再生</string>
+    <string name="haptic_save">保存</string>
+    <string name="haptic_edit">編集</string>
+    <string name="haptic_delete">削除</string>
+    <string name="haptic_empty">ステップなし（振動しません）</string>
+    <string name="haptic_duration">時間（ms、0以上）</string>
+    <string name="haptic_amplitude">振幅（0〜255、0は休止）</string>
+    <string name="haptic_duration_error">0以上の整数を入力してください</string>
+    <string name="haptic_amplitude_error">0〜255の整数を入力してください</string>
+    <string name="haptic_media">メディアのハプティクスとして再生</string>
+    <string name="haptic_media_summary">タッチ操作とは別のメディア用振動設定で再生します。端末側のメディア設定の影響を受けます。</string>
+    <string name="haptic_pattern_summary">カスタム波形（入力時）モードで使用する波形を編集</string>
+</resources>
