@@ -24,3 +24,11 @@ app/liteFdroid/
 app/liteStandard
 .idea/gradle.xml
 
+# Preview signing material must never enter git.
+*.jks
+*.keystore
+*.p12
+*.pfx
+preview-artifact/
+signed/
+unsigned/
