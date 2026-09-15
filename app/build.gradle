@@ -79,6 +79,14 @@ android {
         }
     }
 
+    // Preview identity/signing belongs only to the integration branch.
+    // CI supplies a monotonically increasing code; local unsigned builds use 1.
+    def previewCodeText = providers.gradleProperty('previewVersionCode').orElse('1').get()
+    if (!(previewCodeText ==~ /[1-9][0-9]*/) || previewCodeText.toLong() > 2100000000L) {
+        throw new GradleException('previewVersionCode must be in 1..2100000000')
+    }
+    def previewCode = previewCodeText.toInteger()
+
     def shouldSplitApks = project.hasProperty('splitApks')
 
     if (shouldSplitApks) {
@@ -105,6 +113,17 @@ android {
         releaseUnsigned {
             initWith release
             signingConfig null
+            matchingFallbacks = ['release']
+        }
+    }
+    // The APK is signed in an isolated Actions job, never by Gradle.
+    buildTypes {
+        preview {
+            initWith releaseUnsigned
+            applicationIdSuffix '.preview'
+            versionNameSuffix '-preview'
+            signingConfig null
+            debuggable false
             matchingFallbacks = ['release']
         }
     }
@@ -141,6 +160,13 @@ android {
 
     applicationVariants.configureEach { variant ->
         variant.outputs.each { output ->
+            if (variant.buildType.name == 'preview') {
+                if (shouldSplitApks) {
+                    throw new GradleException('Preview uses a single APK; do not enable splitApks')
+                }
+                output.versionCodeOverride = previewCode
+                output.outputFileName = "sumire-preview-${variant.flavorName}-unsigned.apk"
+            }
             def flavorPrefix = variant.flavorName ? "${variant.flavorName}-" : ""
             // 分割モードが有効な場合のみ実行
             if (shouldSplitApks) {
