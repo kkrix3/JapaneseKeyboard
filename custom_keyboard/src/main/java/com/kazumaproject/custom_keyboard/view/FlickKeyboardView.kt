@@ -1,5 +1,6 @@
 package com.kazumaproject.custom_keyboard.view
 
+import com.kazumaproject.custom_keyboard.haptics.InputHapticContext
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
@@ -104,6 +105,9 @@ class FlickKeyboardView @JvmOverloads constructor(
     interface OnKeyboardActionListener {
         fun onPress(action: KeyAction)
         fun onAction(action: KeyAction, isFlick: Boolean)
+        fun onCommittedAction(action: KeyAction, isFlick: Boolean, hapticContext: InputHapticContext) {
+            onAction(action, isFlick)
+        }
         fun onActionLongPress(action: KeyAction)
         fun onActionUpAfterLongPress(action: KeyAction)
         fun onFlickDirectionChanged(direction: FlickDirection)
@@ -143,7 +147,7 @@ class FlickKeyboardView @JvmOverloads constructor(
             postDelayed(runnable, delayMillis)
             CancellableTask { removeCallbacks(runnable) }
         },
-        dispatch = { action -> listener?.onAction(action, false) }
+        dispatch = { action -> listener?.onCommittedAction(action, false, InputHapticContext()) }
     )
 
     private var popupWindowAnchorProvider: (() -> View?)? = null
@@ -2354,7 +2358,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     dispatchCommittedKeyAction(
                                         keyData,
                                         KeyAction.Text(character),
-                                        isFlick = !(first == TfbiFlickDirection.TAP && second == TfbiFlickDirection.TAP)
+                                        isFlick = !(first == TfbiFlickDirection.TAP && second == TfbiFlickDirection.TAP),
+                                        hapticContext = InputHapticContext.fromTwoStepDirections(first, second)
                                     )
                                 }
                             }
@@ -2370,7 +2375,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     keyData = keyData,
                                     action = KeyAction.Text(output),
                                     isFlick = !(first == TfbiFlickDirection.TAP &&
-                                        second == TfbiFlickDirection.TAP)
+                                        second == TfbiFlickDirection.TAP),
+                                    hapticContext = InputHapticContext.fromTwoStepDirections(first, second)
                                 )
                                 return true
                             }
@@ -2524,7 +2530,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     dispatchCommittedKeyAction(
                                         keyData,
                                         KeyAction.Text(character),
-                                        isFlick = !(first == TfbiFlickDirection.TAP && second == TfbiFlickDirection.TAP)
+                                        isFlick = !(first == TfbiFlickDirection.TAP && second == TfbiFlickDirection.TAP),
+                                        hapticContext = InputHapticContext.fromTwoStepDirections(first, second)
                                     )
                                 }
                             }
@@ -2582,6 +2589,10 @@ class FlickKeyboardView @JvmOverloads constructor(
                             }
 
                             override fun onFlick(character: String) {
+                                onFlick(character, isTwoStepFlick = false)
+                            }
+
+                            override fun onFlick(character: String, isTwoStepFlick: Boolean) {
                                 Log.d(
                                     "FlickKeyboardView KeyType.HIERARCHICAL_FLICK",
                                     "Char: $character"
@@ -2590,7 +2601,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     dispatchCommittedKeyAction(
                                         keyData,
                                         KeyAction.Text(character),
-                                        isFlick = true
+                                        isFlick = true,
+                                        hapticContext = InputHapticContext(isTwoStepFlick)
                                     )
                                 }
                             }
@@ -2678,6 +2690,7 @@ class FlickKeyboardView @JvmOverloads constructor(
         action: KeyAction,
         isFlick: Boolean,
         isLongPress: Boolean = false,
+        hapticContext: InputHapticContext = InputHapticContext(),
     ) {
         val dispatch = dispatch@{
             val toggleValues = if (
@@ -2704,13 +2717,16 @@ class FlickKeyboardView @JvmOverloads constructor(
                 return@dispatch
             }
             if (isFlick) {
-                dispatchNonTapActionWithoutPreviewCancel(action, isFlick = true)
+                dispatchNonTapActionWithoutPreviewCancel(action, isFlick = true, hapticContext = hapticContext)
             } else {
                 doubleTapActionDispatcher.onCommittedTap(
                     keyIdentity = keyData.keyId
                         ?: "legacy:${keyData.row}:${keyData.column}:${keyData.keyType}",
                     normalAction = action,
-                    binding = keyData.effectiveDoubleTapBinding(action)
+                    binding = keyData.effectiveDoubleTapBinding(action),
+                    dispatch = { resolvedAction ->
+                        listener?.onCommittedAction(resolvedAction, false, hapticContext)
+                    }
                 )
             }
         }
@@ -2732,9 +2748,13 @@ class FlickKeyboardView @JvmOverloads constructor(
         dispatchNonTapActionWithoutPreviewCancel(action, isFlick)
     }
 
-    private fun dispatchNonTapActionWithoutPreviewCancel(action: KeyAction, isFlick: Boolean) {
+    private fun dispatchNonTapActionWithoutPreviewCancel(
+        action: KeyAction,
+        isFlick: Boolean,
+        hapticContext: InputHapticContext = InputHapticContext()
+    ) {
         doubleTapActionDispatcher.interrupt()
-        listener?.onAction(action, isFlick)
+        listener?.onCommittedAction(action, isFlick, hapticContext)
     }
 
     private fun dispatchResolvedSumireSpecialKeyAction(

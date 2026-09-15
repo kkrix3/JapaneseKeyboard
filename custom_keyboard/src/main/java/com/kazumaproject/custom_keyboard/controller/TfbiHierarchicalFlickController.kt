@@ -59,6 +59,9 @@ class TfbiHierarchicalFlickController(
     interface TfbiListener {
         fun onPress(character: String)
         fun onFlick(character: String)
+        fun onFlick(character: String, isTwoStepFlick: Boolean) {
+            onFlick(character)
+        }
         fun onSelectionChanged(character: String?, isFlick: Boolean) {}
         fun onCanceled() {}
 
@@ -471,11 +474,28 @@ class TfbiHierarchicalFlickController(
         }
 
         if (selectedNode != null) {
-            listener?.onFlick(selectedNode.char)
+            listener?.onFlick(selectedNode.char, committedFlickDepth() >= 2)
         }
 
         // 1タッチの終了
         resetState()
+    }
+
+    /**
+     * Count the retained selection path, not text length or the deepest preview visited.
+     * Opening a submenu retains its entry direction, so that duplicate is still one flick.
+     * Popped/cancelled stages are already absent from highlightStack.
+     */
+    private fun committedFlickDepth(): Int {
+        var depth = 0
+        var previous = TfbiFlickDirection.TAP
+        for (direction in highlightStack.toList().asReversed() + currentHighlight) {
+            if (direction != TfbiFlickDirection.TAP && direction != previous) {
+                depth++
+                previous = direction
+            }
+        }
+        return depth
     }
 
     private fun notifySelectionChanged() {

@@ -1,5 +1,11 @@
 package com.kazumaproject.markdownhelperkeyboard.ime_service
 
+import com.kazumaproject.custom_keyboard.haptics.CommittedInputHaptics
+import com.kazumaproject.custom_keyboard.haptics.CustomHapticPlayer
+import com.kazumaproject.custom_keyboard.haptics.HapticPatternKind
+import com.kazumaproject.custom_keyboard.haptics.InputHapticContext
+import com.kazumaproject.custom_keyboard.haptics.LegacyHapticPolicy
+
 import com.kazumaproject.markdownhelperkeyboard.ime_service.split_keyboard.*
 import com.kazumaproject.markdownhelperkeyboard.ime_service.floating_dictionary.DictionaryKind
 import com.kazumaproject.markdownhelperkeyboard.ime_service.floating_dictionary.FloatingDictionaryController
@@ -1726,6 +1732,8 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private var qwertyShowKeymapSymbolsPreference: Boolean? = false
     private var qwertyRomajiShiftConversionPreference: Boolean? = false
     private var showCandidateInPasswordPreference: Boolean? = true
+    private val customHapticPlayer by lazy { CustomHapticPlayer(this) }
+    private val committedInputHaptics by lazy { CommittedInputHaptics(customHapticPlayer::play) }
     private var isVibration: Boolean? = true
     private var vibrationTimingStr: String? = "both"
     private var isKeySoundEnabled: Boolean? = false
@@ -13504,8 +13512,15 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             }
 
             override fun onActionLongPress(action: KeyAction) {
+                committedInputHaptics.dispatch(action, InputHapticContext()) {
+                    val canPlay = currentInputConnection != null
+                    performOnActionLongPress(action) && canPlay
+                }
+            }
+
+            private fun performOnActionLongPress(action: KeyAction): Boolean {
                 activateSplitView(flickView)
-                if (isKeyboardLayoutEditModeActive()) return
+                if (isKeyboardLayoutEditModeActive()) return false
                 finishCustomToggleForAction()
                 if (action != KeyAction.DoNothing) {
                     vibrate()
@@ -13513,8 +13528,8 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                 }
                 Timber.d("onActionLongPress: $action")
                 when (action) {
-                    KeyAction.DoNothing -> Unit
-                    KeyAction.Backspace -> {}
+                    KeyAction.DoNothing -> return false
+                    KeyAction.Backspace -> return false
                     KeyAction.ChangeInputMode -> {
                         // 現在のモードに応じて次のモードを決定
                         customKeyboardMode = when (customKeyboardMode) {
@@ -13529,7 +13544,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         val insertString = inputString.value
                         if (switchBunsetsuSplitPattern()) {
                             markSpaceConvertLongPressConsumed()
-                            return
+                            return true
                         }
                         markSpaceConvertLongPressConsumed()
                         if (insertString.isEmpty()) {
@@ -13567,7 +13582,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                     KeyAction.Space -> {
                         if (switchBunsetsuSplitPattern()) {
                             markSpaceConvertLongPressConsumed()
-                            return
+                            return true
                         }
                         enterSpaceConvertCursorMoveMode(
                             SpaceConvertCursorMoveSource.SumireCustomSpace
@@ -13577,12 +13592,12 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         markSpaceConvertLongPressConsumed()
                     }
 
-                    KeyAction.Copy -> {
-
-                    }
+                    KeyAction.Copy -> return false
 
                     KeyAction.Delete -> {
+                        val converted = isHenkan.get()
                         handleDeleteLongPress()
+                        return converted
                     }
 
                     KeyAction.NewLine, KeyAction.Enter, KeyAction.Confirm -> {
@@ -13636,6 +13651,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             }
                         }
                         refreshEditHistoryUi()
+                        return false
                     }
 
                     KeyAction.MoveCursorRight -> {
@@ -13658,22 +13674,23 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             }
                         }
                         refreshEditHistoryUi()
+                        return false
                     }
 
-                    KeyAction.Paste -> {}
-                    KeyAction.SelectAll -> {}
-                    KeyAction.SelectLeft -> {}
-                    KeyAction.SelectRight -> {}
-                    KeyAction.ShowEmojiKeyboard -> {}
+                    KeyAction.Paste -> return false
+                    KeyAction.SelectAll -> return false
+                    KeyAction.SelectLeft -> return false
+                    KeyAction.SelectRight -> return false
+                    KeyAction.ShowEmojiKeyboard -> return false
 
                     KeyAction.SwitchToNextIme -> {
                         showListPopup()
                     }
 
-                    KeyAction.ToggleCase -> {}
-                    KeyAction.ToggleDakuten -> {}
-                    KeyAction.ToggleDakutenOnly -> {}
-                    KeyAction.ToggleHandakutenOnly -> {}
+                    KeyAction.ToggleCase -> return false
+                    KeyAction.ToggleDakuten -> return false
+                    KeyAction.ToggleDakutenOnly -> return false
+                    KeyAction.ToggleHandakutenOnly -> return false
                     KeyAction.SwitchToEnglishLayout -> {
                         customKeyboardMode = KeyboardInputMode.ENGLISH
                         createNewKeyboardLayoutForSumire()
@@ -13695,11 +13712,11 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         setCurrentInputModeForSession(inputMode)
                     }
 
-                    KeyAction.ShiftKey -> {}
-                    KeyAction.MoveCustomKeyboardTab -> {}
-                    is KeyAction.MoveToCustomKeyboard -> {}
-                    KeyAction.ToggleKatakana -> {}
-                    KeyAction.DeleteUntilSymbol -> {}
+                    KeyAction.ShiftKey -> return false
+                    KeyAction.MoveCustomKeyboardTab -> return false
+                    is KeyAction.MoveToCustomKeyboard -> return false
+                    KeyAction.ToggleKatakana -> return false
+                    KeyAction.DeleteUntilSymbol -> return false
                     KeyAction.MoveCursorDown -> {
                         if (cycleFocusedBunsetsuCandidate(delta = 1)) {
                             refreshEditHistoryUi()
@@ -13712,12 +13729,12 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         }
                     }
 
-                    KeyAction.Cancel -> {}
-                    KeyAction.VoiceInput -> {}
-                    is KeyAction.Text -> Unit
-                    KeyAction.DeleteAfterCursorUntilSymbol -> {}
-                    KeyAction.UndoLastDelete -> {}
-                    KeyAction.SwitchRomajiEnglish -> {}
+                    KeyAction.Cancel -> return false
+                    KeyAction.VoiceInput -> return false
+                    is KeyAction.Text -> return false
+                    KeyAction.DeleteAfterCursorUntilSymbol -> return false
+                    KeyAction.UndoLastDelete -> return false
+                    KeyAction.SwitchRomajiEnglish -> return false
                     KeyAction.ForceNewLine -> {
                         val insertString = inputString.value
                         val suggestions = suggestionAdapter?.suggestions ?: emptyList()
@@ -13728,80 +13745,93 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         }
                     }
 
-                    KeyAction.SwitchDirectMode -> {}
-                    KeyAction.CapLockKey -> {}
-                    KeyAction.ForceHalfWidthSpace -> {}
-                    KeyAction.ForceFullWidthSpace -> {}
-                    KeyAction.DeleteAfterCursor -> {}
-                    KeyAction.CommitAndInsertSpace -> {}
+                    KeyAction.SwitchDirectMode -> return false
+                    KeyAction.CapLockKey -> return false
+                    KeyAction.ForceHalfWidthSpace -> return false
+                    KeyAction.ForceFullWidthSpace -> return false
+                    KeyAction.DeleteAfterCursor -> return false
+                    KeyAction.CommitAndInsertSpace -> return false
                 }
+                return true
             }
 
             override fun onActionUpAfterLongPress(action: KeyAction) {
+                committedInputHaptics.dispatch(action, InputHapticContext()) {
+                    val canPlay = currentInputConnection != null
+                    performOnActionUpAfterLongPress(action) && canPlay
+                }
+            }
+
+            private fun performOnActionUpAfterLongPress(action: KeyAction): Boolean {
                 activateSplitView(flickView)
-                if (isKeyboardLayoutEditModeActive()) return
+                if (isKeyboardLayoutEditModeActive()) return false
                 Timber.d("onActionUpAfterLongPress: $action")
                 when (action) {
-                    KeyAction.DoNothing -> Unit
-                    KeyAction.Backspace -> {}
-                    KeyAction.ChangeInputMode -> {}
-                    KeyAction.Confirm -> {}
+                    KeyAction.DoNothing -> return false
+                    KeyAction.Backspace -> return false
+                    KeyAction.ChangeInputMode -> return false
+                    KeyAction.Confirm -> return false
                     KeyAction.Convert, KeyAction.Space -> {
                         isSpaceKeyLongPressed = false
+                        return false
                     }
 
-                    KeyAction.Copy -> {}
+                    KeyAction.Copy -> return false
                     KeyAction.Delete -> {
                         stopDeleteLongPress()
+                        return false
                     }
 
-                    KeyAction.Enter -> {}
-                    is KeyAction.InputText -> {}
+                    KeyAction.Enter -> return false
+                    is KeyAction.InputText -> return false
                     KeyAction.MoveCursorLeft -> {
                         cancelLeftLongPress()
                         cancelRightLongPress()
+                        return false
                     }
 
                     KeyAction.MoveCursorRight -> {
                         cancelLeftLongPress()
                         cancelRightLongPress()
+                        return false
                     }
 
-                    KeyAction.NewLine -> {}
-                    KeyAction.Paste -> {}
-                    KeyAction.SelectAll -> {}
-                    KeyAction.SelectLeft -> {}
-                    KeyAction.SelectRight -> {}
-                    KeyAction.ShowEmojiKeyboard -> {}
-                    KeyAction.SwitchToNextIme -> {}
-                    KeyAction.ToggleCase -> {}
-                    KeyAction.ToggleDakuten -> {}
-                    KeyAction.ToggleDakutenOnly -> {}
-                    KeyAction.ToggleHandakutenOnly -> {}
-                    KeyAction.SwitchToEnglishLayout -> {}
-                    KeyAction.SwitchToKanaLayout -> {}
-                    KeyAction.SwitchToNumberLayout -> {}
-                    KeyAction.ShiftKey -> {}
-                    KeyAction.MoveCustomKeyboardTab -> {}
-                    is KeyAction.MoveToCustomKeyboard -> {}
-                    KeyAction.ToggleKatakana -> {}
-                    KeyAction.DeleteUntilSymbol -> {}
-                    KeyAction.MoveCursorDown -> {}
-                    KeyAction.MoveCursorUp -> {}
+                    KeyAction.NewLine -> return false
+                    KeyAction.Paste -> return false
+                    KeyAction.SelectAll -> return false
+                    KeyAction.SelectLeft -> return false
+                    KeyAction.SelectRight -> return false
+                    KeyAction.ShowEmojiKeyboard -> return false
+                    KeyAction.SwitchToNextIme -> return false
+                    KeyAction.ToggleCase -> return false
+                    KeyAction.ToggleDakuten -> return false
+                    KeyAction.ToggleDakutenOnly -> return false
+                    KeyAction.ToggleHandakutenOnly -> return false
+                    KeyAction.SwitchToEnglishLayout -> return false
+                    KeyAction.SwitchToKanaLayout -> return false
+                    KeyAction.SwitchToNumberLayout -> return false
+                    KeyAction.ShiftKey -> return false
+                    KeyAction.MoveCustomKeyboardTab -> return false
+                    is KeyAction.MoveToCustomKeyboard -> return false
+                    KeyAction.ToggleKatakana -> return false
+                    KeyAction.DeleteUntilSymbol -> return false
+                    KeyAction.MoveCursorDown -> return false
+                    KeyAction.MoveCursorUp -> return false
                     KeyAction.Cancel -> {
                         stopDeleteLongPress()
                         cancelLeftLongPress()
                         cancelRightLongPress()
+                        return false
                     }
 
-                    KeyAction.VoiceInput -> {}
-                    is KeyAction.Text -> Unit
-                    KeyAction.DeleteAfterCursorUntilSymbol -> {}
-                    KeyAction.UndoLastDelete -> {}
-                    KeyAction.ForceNewLine -> {}
-                    KeyAction.SwitchDirectMode -> {}
-                    KeyAction.SwitchRomajiEnglish -> {}
-                    KeyAction.CapLockKey -> {}
+                    KeyAction.VoiceInput -> return false
+                    is KeyAction.Text -> return false
+                    KeyAction.DeleteAfterCursorUntilSymbol -> return false
+                    KeyAction.UndoLastDelete -> return false
+                    KeyAction.ForceNewLine -> return false
+                    KeyAction.SwitchDirectMode -> return false
+                    KeyAction.SwitchRomajiEnglish -> return false
+                    KeyAction.CapLockKey -> return false
                     KeyAction.ForceHalfWidthSpace -> {
                         handleForceHalfWidthSpaceOrConvert(
                             mainView,
@@ -13813,9 +13843,10 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             mainView,
                             floatingKeyboardBinding.takeIf { isFloatingView })
                     }
-                    KeyAction.DeleteAfterCursor -> {}
-                    KeyAction.CommitAndInsertSpace -> {}
+                    KeyAction.DeleteAfterCursor -> return false
+                    KeyAction.CommitAndInsertSpace -> return false
                 }
+                return true
             }
 
             override fun onFlickDirectionChanged(direction: FlickDirection) {
@@ -13826,20 +13857,27 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             }
 
             override fun onFlickActionLongPress(action: KeyAction) {
+                committedInputHaptics.dispatch(action, InputHapticContext()) {
+                    val canPlay = currentInputConnection != null
+                    performOnFlickActionLongPress(action) && canPlay
+                }
+            }
+
+            private fun performOnFlickActionLongPress(action: KeyAction): Boolean {
                 activateSplitView(flickView)
-                if (isKeyboardLayoutEditModeActive()) return
+                if (isKeyboardLayoutEditModeActive()) return false
                 finishCustomToggleForAction()
                 Timber.d("onFlickActionLongPress: $action")
                 if (action != KeyAction.DoNothing) vibrate()
                 when (action) {
-                    KeyAction.DoNothing -> Unit
-                    KeyAction.Backspace -> {}
-                    KeyAction.ChangeInputMode -> {}
-                    KeyAction.Confirm -> {}
+                    KeyAction.DoNothing -> return false
+                    KeyAction.Backspace -> return false
+                    KeyAction.ChangeInputMode -> return false
+                    KeyAction.Confirm -> return false
                     KeyAction.Convert -> {
                         if (switchBunsetsuSplitPattern()) {
                             markSpaceConvertLongPressConsumed()
-                            return
+                            return true
                         }
                         markSpaceConvertLongPressConsumed()
                         if (zenzEnableLongPressConversionPreference == true) {
@@ -13872,11 +13910,13 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                     }
 
                     KeyAction.Delete -> {
+                        val converted = isHenkan.get()
                         handleDeleteLongPress()
+                        return converted
                     }
 
-                    KeyAction.Enter -> {}
-                    is KeyAction.InputText -> {}
+                    KeyAction.Enter -> return false
+                    is KeyAction.InputText -> return false
                     KeyAction.MoveCursorLeft -> {
                         cancelLeftLongPress()
                         cancelRightLongPress()
@@ -13888,6 +13928,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             clearDeletedBuffer()
                         }
                         refreshEditHistoryUi()
+                        return false
                     }
 
                     KeyAction.MoveCursorRight -> {
@@ -13901,9 +13942,10 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             clearDeletedBuffer()
                         }
                         refreshEditHistoryUi()
+                        return false
                     }
 
-                    KeyAction.NewLine -> {}
+                    KeyAction.NewLine -> return false
                     KeyAction.Paste -> {
                         pasteAction()
                     }
@@ -13912,13 +13954,13 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         selectAllText()
                     }
 
-                    KeyAction.SelectLeft -> {}
-                    KeyAction.SelectRight -> {}
-                    KeyAction.ShowEmojiKeyboard -> {}
+                    KeyAction.SelectLeft -> return false
+                    KeyAction.SelectRight -> return false
+                    KeyAction.ShowEmojiKeyboard -> return false
                     KeyAction.Space -> {
                         if (switchBunsetsuSplitPattern()) {
                             markSpaceConvertLongPressConsumed()
-                            return
+                            return true
                         }
                         enterSpaceConvertCursorMoveMode(
                             SpaceConvertCursorMoveSource.SumireCustomFlickSpace
@@ -13940,60 +13982,67 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         dakutenSmallActionForSumire()
                     }
 
-                    KeyAction.ToggleDakutenOnly -> {}
+                    KeyAction.ToggleDakutenOnly -> return false
 
-                    KeyAction.ToggleHandakutenOnly -> {}
+                    KeyAction.ToggleHandakutenOnly -> return false
 
-                    KeyAction.SwitchToEnglishLayout -> {}
-                    KeyAction.SwitchToKanaLayout -> {}
-                    KeyAction.SwitchToNumberLayout -> {}
-                    KeyAction.ShiftKey -> {}
-                    KeyAction.MoveCustomKeyboardTab -> {}
-                    is KeyAction.MoveToCustomKeyboard -> {}
-                    KeyAction.ToggleKatakana -> {}
-                    KeyAction.DeleteUntilSymbol -> {}
-                    KeyAction.MoveCursorDown -> {
+                    KeyAction.SwitchToEnglishLayout -> return false
+                    KeyAction.SwitchToKanaLayout -> return false
+                    KeyAction.SwitchToNumberLayout -> return false
+                    KeyAction.ShiftKey -> return false
+                    KeyAction.MoveCustomKeyboardTab -> return false
+                    is KeyAction.MoveToCustomKeyboard -> return false
+                    KeyAction.ToggleKatakana -> return false
+                    KeyAction.DeleteUntilSymbol -> return false
+                    KeyAction.MoveCursorDown -> return false
 
-                    }
-
-                    KeyAction.MoveCursorUp -> {}
-                    KeyAction.Cancel -> {}
-                    KeyAction.VoiceInput -> {}
-                    is KeyAction.Text -> Unit
-                    KeyAction.DeleteAfterCursorUntilSymbol -> {}
-                    KeyAction.UndoLastDelete -> {}
-                    KeyAction.ForceNewLine -> {}
-                    KeyAction.SwitchDirectMode -> {}
-                    KeyAction.SwitchRomajiEnglish -> {}
-                    KeyAction.CapLockKey -> {}
-                    KeyAction.ForceHalfWidthSpace -> {}
-                    KeyAction.ForceFullWidthSpace -> {}
-                    KeyAction.DeleteAfterCursor -> {}
-                    KeyAction.CommitAndInsertSpace -> {}
+                    KeyAction.MoveCursorUp -> return false
+                    KeyAction.Cancel -> return false
+                    KeyAction.VoiceInput -> return false
+                    is KeyAction.Text -> return false
+                    KeyAction.DeleteAfterCursorUntilSymbol -> return false
+                    KeyAction.UndoLastDelete -> return false
+                    KeyAction.ForceNewLine -> return false
+                    KeyAction.SwitchDirectMode -> return false
+                    KeyAction.SwitchRomajiEnglish -> return false
+                    KeyAction.CapLockKey -> return false
+                    KeyAction.ForceHalfWidthSpace -> return false
+                    KeyAction.ForceFullWidthSpace -> return false
+                    KeyAction.DeleteAfterCursor -> return false
+                    KeyAction.CommitAndInsertSpace -> return false
                 }
+                return true
             }
 
             override fun onFlickActionUpAfterLongPress(action: KeyAction, isFlick: Boolean) {
+                committedInputHaptics.dispatch(action, InputHapticContext()) {
+                    val canPlay = currentInputConnection != null
+                    performOnFlickActionUpAfterLongPress(action, isFlick) && canPlay
+                }
+            }
+
+            private fun performOnFlickActionUpAfterLongPress(action: KeyAction, isFlick: Boolean): Boolean {
                 activateSplitView(flickView)
-                if (isKeyboardLayoutEditModeActive()) return
+                if (isKeyboardLayoutEditModeActive()) return false
                 if (action != KeyAction.DoNothing) handleKeyReleaseFeedback()
                 Timber.d("onFlickActionUpAfterLongPress: $action $isFlick")
                 when (action) {
-                    KeyAction.DoNothing -> Unit
-                    KeyAction.Backspace -> {}
-                    KeyAction.ChangeInputMode -> {}
-                    KeyAction.Confirm -> {}
-                    KeyAction.Copy -> {}
+                    KeyAction.DoNothing -> return false
+                    KeyAction.Backspace -> return false
+                    KeyAction.ChangeInputMode -> return false
+                    KeyAction.Confirm -> return false
+                    KeyAction.Copy -> return false
                     KeyAction.Delete -> {
                         stopDeleteLongPress()
+                        return false
                     }
 
-                    KeyAction.Enter -> {}
+                    KeyAction.Enter -> return false
                     is KeyAction.InputText -> {
                         when (action.text) {
                             "ひらがな小文字" -> {
                                 val insertString = inputString.value
-                                if (insertString.isEmpty()) return
+                                if (insertString.isEmpty()) return false
                                 val sb = StringBuilder()
                                 val c = insertString.last()
                                 c.getDakutenFlickTop()?.let { dakutenChar ->
@@ -14005,7 +14054,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
                             "濁点" -> {
                                 val insertString = inputString.value
-                                if (insertString.isEmpty()) return
+                                if (insertString.isEmpty()) return false
                                 val sb = StringBuilder()
                                 val c = insertString.last()
                                 c.getDakutenFlickLeft()?.let { dakutenChar ->
@@ -14017,7 +14066,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
                             "半濁点" -> {
                                 val insertString = inputString.value
-                                if (insertString.isEmpty()) return
+                                if (insertString.isEmpty()) return false
                                 val sb = StringBuilder()
                                 val c = insertString.last()
                                 c.getDakutenFlickRight()?.let { dakutenChar ->
@@ -14033,23 +14082,25 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                     KeyAction.MoveCursorLeft -> {
                         cancelLeftLongPress()
                         cancelRightLongPress()
+                        return false
                     }
 
                     KeyAction.MoveCursorRight -> {
                         cancelLeftLongPress()
                         cancelRightLongPress()
+                        return false
                     }
 
-                    KeyAction.NewLine -> {}
-                    KeyAction.Paste -> {}
-                    KeyAction.SelectAll -> {}
-                    KeyAction.SelectLeft -> {}
-                    KeyAction.SelectRight -> {}
-                    KeyAction.ShowEmojiKeyboard -> {}
+                    KeyAction.NewLine -> return false
+                    KeyAction.Paste -> return false
+                    KeyAction.SelectAll -> return false
+                    KeyAction.SelectLeft -> return false
+                    KeyAction.SelectRight -> return false
+                    KeyAction.ShowEmojiKeyboard -> return false
                     KeyAction.Convert, KeyAction.Space -> {
                         flickView.setCursorMode(false)
                         if (shouldSuppressSpaceConvertTapAfterLongPress()) {
-                            return
+                            return false
                         }
                         isSpaceKeyLongPressed = false
                         if (inputString.value.isEmpty()) {
@@ -14072,7 +14123,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         }
                     }
 
-                    KeyAction.SwitchToNextIme -> {}
+                    KeyAction.SwitchToNextIme -> return false
                     KeyAction.ToggleCase -> {
                         dakutenSmallActionForSumire()
                     }
@@ -14162,6 +14213,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             deleteWordOrSymbolsBeforeCursor(insertString)
                         }
                         stopDeleteLongPress()
+                        return false
                     }
 
                     KeyAction.DeleteAfterCursorUntilSymbol -> {
@@ -14170,6 +14222,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             deleteWordOrSymbolsAfterCursor(insertString)
                         }
                         stopDeleteLongPress()
+                        return false
                     }
 
                     KeyAction.UndoLastDelete -> {
@@ -14177,6 +14230,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             undoLastHistoryEntry()
                         }
                         stopDeleteLongPress()
+                        return false
                     }
 
                     KeyAction.MoveCursorDown -> {
@@ -14203,10 +14257,11 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         stopDeleteLongPress()
                         cancelLeftLongPress()
                         cancelRightLongPress()
+                        return false
                     }
 
-                    KeyAction.VoiceInput -> {}
-                    is KeyAction.Text -> Unit
+                    KeyAction.VoiceInput -> return false
+                    is KeyAction.Text -> return false
                     KeyAction.ForceNewLine -> {
                         val insertString = inputString.value
                         val suggestions = suggestionAdapter?.suggestions ?: emptyList()
@@ -14261,9 +14316,10 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             floatingKeyboardBinding.takeIf { isFloatingView })
                     }
 
-                    KeyAction.DeleteAfterCursor -> {}
-                    KeyAction.CommitAndInsertSpace -> {}
+                    KeyAction.DeleteAfterCursor -> return false
+                    KeyAction.CommitAndInsertSpace -> return false
                 }
+                return true
             }
 
             override fun onToggleText(keyIdentity: String, values: List<String>) {
@@ -14284,11 +14340,27 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                     mainView = mainView
                 )
                 consumeCustomKeyboardOneShotShift()
+                if (canonicalValues.isNotEmpty() && currentInputConnection != null) {
+                    customHapticPlayer.play(HapticPatternKind.NORMAL_FLICK)
+                }
             }
 
             override fun onAction(action: KeyAction, isFlick: Boolean) {
+                onCommittedAction(action, isFlick, InputHapticContext())
+            }
+
+            override fun onCommittedAction(
+                action: KeyAction, isFlick: Boolean, hapticContext: InputHapticContext
+            ) {
+                committedInputHaptics.dispatch(action, hapticContext) {
+                    val canPlay = currentInputConnection != null
+                    performCommittedAction(action, isFlick) && canPlay
+                }
+            }
+
+            private fun performCommittedAction(action: KeyAction, isFlick: Boolean): Boolean {
                 activateSplitView(flickView)
-                if (isKeyboardLayoutEditModeActive()) return
+                if (isKeyboardLayoutEditModeActive()) return false
                 finishCustomToggleForAction()
                 if (action != KeyAction.DoNothing) handleKeyReleaseFeedback()
 
@@ -14297,24 +14369,25 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                     clearDeleteBufferWithView()
                 }
                 when (action) {
-                    KeyAction.DoNothing -> Unit
+                    KeyAction.DoNothing -> return false
                     is KeyAction.Text -> {
                         val text = action.text
+                        if (text.isEmpty()) return false
                         Timber.d("onAction Text: [$text] [${qwertyMode.value}] [$isDefaultRomajiHenkanMap]")
                         when (qwertyMode.value) {
                             TenKeyQWERTYMode.Custom -> {
-                                if (text.isEmpty()) return
+                                if (text.isEmpty()) return false
                                 val shiftedText = applyCustomLayoutShiftAndCapLock(text)
                                 if (dispatchDirectTextIfNeeded(shiftedText)) {
                                     consumeCustomKeyboardOneShotShift()
-                                    return
+                                    return true
                                 }
                                 if (isCustomLayoutDirectMode) {
                                     finishComposingText()
                                     setComposingText("", 0)
                                     commitText(shiftedText, 1)
                                     consumeCustomKeyboardOneShotShift()
-                                    return
+                                    return true
                                 }
                                 if (text.length == 1) {
                                     if (isCustomLayoutRomajiMode) {
@@ -14397,7 +14470,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                                 handleOnKeyForSumire(text, mainView, isFlick)
                             }
 
-                            else -> {}
+                            else -> return false
                         }
                     }
 
@@ -14425,7 +14498,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             }
 
                             ":", "-" -> {
-                                if (dispatchDirectTextIfNeeded(action.text)) return
+                                if (dispatchDirectTextIfNeeded(action.text)) return true
                                 val insertString = inputString.value
                                 val sb = StringBuilder()
                                 sb.append(insertString).append(action.text)
@@ -14436,7 +14509,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
                             "ひらがな小文字" -> {
                                 val insertString = inputString.value
-                                if (insertString.isEmpty()) return
+                                if (insertString.isEmpty()) return false
                                 val sb = StringBuilder()
                                 val c = insertString.last()
                                 c.getDakutenFlickTop()?.let { dakutenChar ->
@@ -14448,7 +14521,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
                             "濁点" -> {
                                 val insertString = inputString.value
-                                if (insertString.isEmpty()) return
+                                if (insertString.isEmpty()) return false
                                 val sb = StringBuilder()
                                 val c = insertString.last()
                                 c.getDakutenFlickLeft()?.let { dakutenChar ->
@@ -14460,7 +14533,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
                             "半濁点" -> {
                                 val insertString = inputString.value
-                                if (insertString.isEmpty()) return
+                                if (insertString.isEmpty()) return false
                                 val sb = StringBuilder()
                                 val c = insertString.last()
                                 c.getDakutenFlickRight()?.let { dakutenChar ->
@@ -14535,7 +14608,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
                     KeyAction.Convert, KeyAction.Space -> {
                         if (shouldSuppressSpaceConvertTapAfterLongPress()) {
-                            return
+                            return false
                         }
                         val insertString = inputString.value
                         val suggestions = suggestionAdapter?.suggestions ?: emptyList()
@@ -14576,7 +14649,8 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                     KeyAction.MoveCursorLeft -> {
                         val insertString = inputString.value
                         val suggestions = suggestionAdapter?.suggestions ?: emptyList()
-                        if (!leftCursorKeyLongKeyPressed.get()) {
+                        val repeated = leftCursorKeyLongKeyPressed.get()
+                        if (!repeated) {
                             if (moveFocusedBunsetsuSegment(delta = -1)) {
                             } else if (isHenkan.get()) {
                                 handleDeleteKeyInHenkan(suggestions, insertString)
@@ -14586,12 +14660,14 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         }
                         cancelRightLongPress()
                         cancelLeftLongPress()
+                        if (repeated) return false
                     }
 
                     KeyAction.MoveCursorRight -> {
                         val insertString = inputString.value
                         val suggestions = suggestionAdapter?.suggestions ?: emptyList()
-                        if (!rightCursorKeyLongKeyPressed.get()) {
+                        val repeated = rightCursorKeyLongKeyPressed.get()
+                        if (!repeated) {
                             if (moveFocusedBunsetsuSegment(delta = 1)) {
                             } else if (isHenkan.get()) {
                                 handleJapaneseModeSpaceKey(
@@ -14603,9 +14679,10 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         }
                         cancelRightLongPress()
                         cancelLeftLongPress()
+                        if (repeated) return false
                     }
 
-                    KeyAction.Backspace -> {}
+                    KeyAction.Backspace -> return false
                     KeyAction.Copy -> {
                         copyAction()
                     }
@@ -14618,8 +14695,8 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         selectAllText()
                     }
 
-                    KeyAction.SelectLeft -> {}
-                    KeyAction.SelectRight -> {}
+                    KeyAction.SelectLeft -> return false
+                    KeyAction.SelectRight -> return false
                     KeyAction.ShowEmojiKeyboard -> {
                         toggleEmojiKeyboard()
                     }
@@ -14783,7 +14860,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         }
                     }
 
-                    KeyAction.Cancel -> {}
+                    KeyAction.Cancel -> return false
                     KeyAction.VoiceInput -> {
                         startVoiceInput(mainView)
                     }
@@ -14800,8 +14877,9 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                             floatingKeyboardBinding.takeIf { isFloatingView })
                     }
 
-                    KeyAction.CommitAndInsertSpace -> {}
+                    KeyAction.CommitAndInsertSpace -> return false
                 }
+                return true
             }
         })
     }
@@ -26319,6 +26397,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                         }
                     }
 
+                    playCustomSpecialKeyFeedback()
                     delay(LONG_DELAY_TIME)
                 }
             } finally {
@@ -27494,6 +27573,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                     handleLeftCursorMoveAction()
                 }
 
+                playCustomSpecialKeyFeedback()
                 delay(LONG_DELAY_TIME)
             }
             requestCandidateRefresh(
@@ -27514,6 +27594,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                     break
                 }
                 actionInRightKeyPressed(insertString)
+                playCustomSpecialKeyFeedback()
                 delay(LONG_DELAY_TIME)
             }
             requestCandidateRefresh(
@@ -28645,9 +28726,15 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         ENTER
     }
 
+    private fun playCustomSpecialKeyFeedback() {
+        if (isKeyboardLayoutEditModeActive() || currentInputConnection == null) return
+        customHapticPlayer.play(HapticPatternKind.SPECIAL_KEY)
+    }
+
     private fun vibrate() {
         if (isKeyboardLayoutEditModeActive()) return
         if (isVibration == false) return
+        if (!LegacyHapticPolicy.isEnabled(vibrationTimingStr)) return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val vibrationEffect = VibrationEffect.createPredefined(VibrationEffect.EFFECT_TICK)
             val combinedVibration = CombinedVibration.createParallel(vibrationEffect)

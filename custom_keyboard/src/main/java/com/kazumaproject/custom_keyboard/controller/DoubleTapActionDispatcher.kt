@@ -32,7 +32,8 @@ class DoubleTapActionDispatcher(
         val binding: DoubleTapBinding,
         val startedAtMillis: Long,
         val generation: Long,
-        val scheduledTask: CancellableTask
+        val scheduledTask: CancellableTask,
+        val dispatch: (KeyAction) -> Unit
     )
 
     private var pending: PendingTap? = null
@@ -41,7 +42,8 @@ class DoubleTapActionDispatcher(
     fun onCommittedTap(
         keyIdentity: String,
         normalAction: KeyAction,
-        binding: DoubleTapBinding?
+        binding: DoubleTapBinding?,
+        dispatch: (KeyAction) -> Unit = this.dispatch
     ) {
         val now = clockMillis()
         val previous = pending
@@ -82,7 +84,7 @@ class DoubleTapActionDispatcher(
             if (active?.generation != thisGeneration) return@schedule
             pending = null
             if (active.binding.policy == DoubleTapPolicy.EXCLUSIVE) {
-                dispatch(active.normalAction)
+                active.dispatch(active.normalAction)
             }
         }
         pending = PendingTap(
@@ -91,7 +93,8 @@ class DoubleTapActionDispatcher(
             binding = binding,
             startedAtMillis = now,
             generation = thisGeneration,
-            scheduledTask = task
+            scheduledTask = task,
+            dispatch = dispatch
         )
     }
 
@@ -114,7 +117,7 @@ class DoubleTapActionDispatcher(
         val active = pending ?: return
         clearPending()
         if (active.binding.policy == DoubleTapPolicy.EXCLUSIVE) {
-            dispatch(active.normalAction)
+            active.dispatch(active.normalAction)
         }
     }
 
