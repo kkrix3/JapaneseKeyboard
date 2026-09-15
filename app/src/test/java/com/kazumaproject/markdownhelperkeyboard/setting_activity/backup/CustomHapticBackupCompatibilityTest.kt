@@ -44,7 +44,7 @@ class CustomHapticBackupCompatibilityTest {
         assertEquals("release", destination.getString("vibration_timing", null))
         assertEquals(7, destination.getInt("future_integer", 0))
         assertEquals(12345678901L, destination.getLong("future_long", 0))
-        assertEquals(0.25f, destination.getFloat("future_float", 0f))
+        assertEquals(0.25f, destination.getFloat("future_float", 0f), 0.0f)
         assertEquals(setOf("a", "あ"), destination.getStringSet("future_set", emptySet()))
         assertTrue(destination.getBoolean("gemma_enable_preference", false))
         assertFalse(destination.contains("preview_only"))
