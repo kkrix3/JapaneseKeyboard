@@ -3384,6 +3384,7 @@ class FlickKeyboardView @JvmOverloads constructor(
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
         if (changedView == this && visibility != View.VISIBLE) {
+            kanaGestureObserver?.cancel()
             doubleTapActionDispatcher.cancel()
             cancelTextPreview()
             cancelTrackedTouchState()

@@ -5,17 +5,13 @@ import android.content.Intent
 import android.graphics.Rect
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
-import android.text.style.BackgroundColorSpan
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.inputmethod.BaseInputConnection
 import androidx.preference.PreferenceManager
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import com.kazumaproject.custom_keyboard.data.KeyTextInputBehavior
-import com.kazumaproject.custom_keyboard.data.copyWithKeys
 import com.kazumaproject.custom_keyboard.layout.KeyboardDefaultLayouts
 import com.kazumaproject.markdownhelperkeyboard.ime_service.di.AppModule
 import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui.KeyboardEditorViewModel
@@ -144,10 +140,11 @@ class SmallTsuImeDeviceTest {
                     assertEquals("flick $surface preview=$preview","っかっかあっち",text(scenario))
                     // Force an external caret movement: the pending first input may not be replaced.
                     SystemClock.sleep(550);tap(ka)
+                    val beforeMove=text(scenario)
                     scenario.onActivity { it.editText.setSelection(0) }
                     SystemClock.sleep(80)
                     tap(ka)
-                    assertFalse("external cursor must invalidate",text(scenario).startsWith("っかっかっ"))
+                    assertEquals("external cursor must preserve the old text", "か$beforeMove",text(scenario))
                 }
             }
         } finally {
