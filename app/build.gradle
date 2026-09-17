@@ -121,6 +121,13 @@ android {
         }
     }
     buildTypes {
+        debug {
+            // Disposable emulator harness only; never a Feature distribution APK.
+            if (providers.gradleProperty('featureDeviceTest').orElse('false').get() == 'true') {
+                applicationIdSuffix '.feature.testbench'
+                versionNameSuffix '-feature-testbench'
+            }
+        }
         feature {
             initWith releaseUnsigned
             applicationIdSuffix '.feature'
