@@ -79,17 +79,22 @@ class SmallTsuSession {
         snapshot: () -> SmallTsuSnapshot?, dispatch: (replacementReading: String?) -> Unit) {
         val active = stroke
         stroke = null
+        if (!settings.enabled || active == null) {
+            cancel()
+            dispatch(null)
+            return
+        }
         val before = snapshot()
-        val previous = active?.first
-        val prefix = SmallTsuKana.prefix(text, settings.rows)
-        val replacement = if (settings.enabled && previous != null &&
-            previous.after == before && previous.settings == settings && prefix != null)
-            previous.before + prefix + text else null
+        val previous = active.first
+        // Classification is only needed for a proven second stroke. OFF and the
+        // ordinary first tap must not normalize or scan arbitrary text before dispatch.
+        val replacement = previous?.takeIf { it.after == before && it.settings == settings }
+            ?.let { first -> SmallTsuKana.prefix(text, settings.rows)?.let { first.before + it + text } }
         val startedEpoch = epoch
         dispatch(replacement)
         val after = snapshot()
         // A paired second stroke is never reused, even when its final output is excluded.
-        if (active != null && previous == null && tap && settings.enabled &&
+        if (previous == null && tap &&
             startedEpoch == epoch && before != null && after != null && text.isNotEmpty() &&
             after.owner === before.owner && after.session == before.session &&
             after.context == before.context && after.revision > before.revision &&
