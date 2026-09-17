@@ -119,18 +119,23 @@ class SmallTsuImeDeviceTest {
         repository.saveLayout(editor.uiState.value.layout,"Small tsu device test",null)
         try {
             shell("ime enable $target");shell("ime set $target")
-            for(surface in listOf("TENKEY","SUMIRE","CUSTOM")) for(preview in listOf(false,true)) {
+            val cases=listOf(Triple("TENKEY","default",false),Triple("CUSTOM","default",false),
+                Triple("TENKEY","default",true),Triple("CUSTOM","default",true)) +
+                listOf("default","circle","sumire","second-flick","third-flick","center-guide-flick")
+                    .map { Triple("SUMIRE",it,false) }
+            for((surface,style,floating) in cases) for(preview in listOf(false,true)) {
                 check(prefs.edit().putString("keyboard_order_preference","[\"$surface\"]")
                     .putBoolean("save_last_used_keyboard",false)
-                    .putBoolean("keyboard_floating_preference",false)
+                    .putBoolean("keyboard_floating_preference",floating)
                     .putBoolean("flick_input_only_preference",true)
-                    .putString("sumire_keyboard_style_preference","default")
+                    .putString("sumire_keyboard_style_preference",style)
                     .putString("sumire_input_method_preference","flick")
                     .putBoolean("live_conversion_preference",false)
                     .putBoolean("flick_editor_preview_preference",preview)
                     .putBoolean("double_tap_small_tsu_enabled",true)
                     .putInt("double_tap_small_tsu_interval",500).commit())
                 ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
+                    android.util.Log.i("SmallTsuTest","surface=$surface style=$style floating=$floating preview=$preview")
                     awaitStableKeyboard()
                     val ka=key("か");val ta=key("た");val a=key("あ")
                     tap(ka);assertEquals("first immediate $surface preview=$preview","か",text(scenario))
@@ -145,6 +150,20 @@ class SmallTsuImeDeviceTest {
                     SystemClock.sleep(80)
                     tap(ka)
                     assertEquals("external cursor must preserve the old text", "か$beforeMove",text(scenario))
+                }
+                // Allow a live conversion display update between taps, then check the
+                // canonical reading by appending with live display turned off.
+                check(prefs.edit().putBoolean("live_conversion_preference",true).commit())
+                ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
+                    awaitStableKeyboard()
+                    val ka=key("か");val a=key("あ")
+                    tap(ka);SystemClock.sleep(200);tap(ka)
+                    SystemClock.sleep(600)
+                    check(prefs.edit().putBoolean("live_conversion_preference",false).commit())
+                    SystemClock.sleep(80);tap(a)
+                    assertEquals("live reading $surface/$style floating=$floating preview=$preview","っかあ",text(scenario))
+                    SystemClock.sleep(600)
+                    assertEquals("late candidates must not restore first input","っかあ",text(scenario))
                 }
             }
         } finally {

@@ -60,6 +60,7 @@ class TfbiHierarchicalFlickController(
         fun onPress(character: String)
         fun onFlick(character: String)
         fun onCommitted(character: String, isFlick: Boolean) { onFlick(character) }
+        fun onHold() {}
         fun onSelectionChanged(character: String?, isFlick: Boolean) {}
         fun onCanceled() {}
 
@@ -134,6 +135,7 @@ class TfbiHierarchicalFlickController(
     private val longPressRunnable = Runnable {
         val view = attachedView ?: return@Runnable
         if (activeGestureConfig == null || mapStack.size > 1) return@Runnable
+        listener?.onHold()
         popupWindow?.dismiss()
         showPopup(view, true)
     }
