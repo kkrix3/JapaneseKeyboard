@@ -42,9 +42,9 @@
 | 役割 | ブランチ | SHA |
 | --- | --- | --- |
 | 作業開始時のdev | dev | a47715a453cee3ecb40e9757ffbd7d4790ce7ae9 |
-| 機能 | feature/double-tap-small-tsu | aee9d735c9fef5dd31b283c588664e420d9aa0c9 |
+| 機能 | feature/double-tap-small-tsu | 99c9f4d649376c23cdb7b9b3205d2d49eb6cb58a |
 | 共通配布基盤 | build/feature-apk-infrastructure | e2adc19425c7842dc0ecbd43c20537463c1130c4 |
-| 通常mergeした検証ソース | verify/double-tap-small-tsu | cbcb50ded52dd7f82b21400df5c2ea9f49afb238 |
+| 通常mergeした検証ソース | verify/double-tap-small-tsu | 165ba703cab49e637dc2d453cb950b93ad088896 |
 
 開始時点ではfork devとupstream/devに差分なし。同期は実施していない。
 mainは開始時に存在しなかった。既存dev・preview・feature/custom-hapticsへの直接変更、
@@ -52,13 +52,11 @@ force-push、削除、上流PR・コメント、Release公開はしていない�
 
 ## 実行結果
 
-中間run #4でJVM 404件（core 62、custom_keyboard 239、app 103）とPython 4件が成功。
-run #6の実IME 20条件は8条件成功・12条件失敗。イベントごとの描画同期でUP→DOWNが500msを超える例を確認した。
-連続操作は公開WindowInspectorで取得した実IMEのルートViewへ実時刻イベントを送り、間隔と押下時間をassertする修正版を保存。
-実Service・InputConnection・入力先EditText・候補処理を通す。単独入力・カーソルケースではOS注入も残す。
-連続操作の検証をOS InputDispatcher全体を通す操作とは区別する。
-[最終再検証run #9](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35208466578) は実行待ち。
-これらの実IME条件が全件成功したとは報告していない。
+[run #9](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35208466578)でJVM 406件（core 62、custom_keyboard 239、app 105）とPython 4件が成功。
+実IME試験は通常表示の4条件を成功後、フローティングでテスト側が2つのrootを区別できず停止した。
+キーを取得したアクセシビリティwindow IDで対象を特定し、実時刻イベントを順序どおりpostする修正版を保存。
+[最終再検証run #10](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262) は実行中。
+実IME 20条件すべてが成功したとは報告していない。連続操作は実IMEのrootから送り、OS InputDispatcher全体の検証とは区別する。
 
 実行コマンド:
 
@@ -70,7 +68,7 @@ bash ./gradlew :app:connectedFullStandardDebugAndroidTest -PfeatureDeviceTest=tr
   -Pandroid.testInstrumentationRunnerArguments.class=com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest \
   --no-daemon --console=plain --max-workers=2
 bash ./gradlew :app:assembleFullStandardFeature \
-  -PfeatureVersionCode=1000000004 -PfeatureBuildTag=double-tap-small-tsu-a8cff0503266 \
+  -PfeatureVersionCode=1000000009 -PfeatureBuildTag=double-tap-small-tsu-cbcb50ded52d \
   --no-daemon --console=plain --max-workers=2
 ```
 
@@ -88,22 +86,28 @@ bash ./gradlew :app:assembleFullStandardFeature \
 通常入力の直後の表示検証は維持し、アプリの通常入力へ待機処理を追加していない。
 20通りを通した追加実IME試験では、UiAutomationの各イベント後の描画同期によって
 UP→DOWNが500msを超える場合があった。
-Android 15ではUiAutomationのsync=falseでも描画同期が残るため、連続操作を実IMEのルートViewへ送る方式に変更した。
-注入したUP→DOWN間隔をログとassertで確認し、単独入力の即時表示試験も残す。
+Android 15の実装ではsync=falseでもwindow transaction同期が残るため、
+時間条件のある組は公開WindowInspector経由で実IMEのルートViewへ実時刻イベントを送る。
+実Service・InputConnection・EditText・候補処理を通す。単独入力とカーソルケースではOS注入も残す。
+連続操作の試験はOS InputDispatcher全体を通す操作とは区別する。
+UP→DOWN間隔と1回目の押下時間をログとassertで確認し、単独入力の即時表示試験も残す。
+フローティング時は、表示キーのアクセシビリティwindow IDと一致するrootを選ぶ。
+イベントはテストスレッドで実時刻を採取してメインスレッドへ順にpostし、最後のUPだけ処理完了を待つ。
+Viewの探索や各イベントの処理待ちを、テストの押下時間へ混ぜない。
 
 基点は未確定範囲がある選択通知を早期returnするため、外部カーソル移動後も次の文字が
 従来の未確定末尾へ入る場合がある。今回の促音予約は破棄し、カーソル処理そのものは変更しない。
 
 ## 未署名APK
 
-以下は中間ソース `a8cff05032665135c64ab8d323eaafdbed65d23e` の生成・検査済みAPK。上表の最終ソースとは区別する。
+以下は中間ソース `cbcb50ded52dd7f82b21400df5c2ea9f49afb238` の生成・検査済みAPK。上表の最終ソースとは区別する。
 
-[run #4](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35202944987) ／ [未署名APK artifact](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35202944987/artifacts/10489701129)
+[run #9](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35208466578) ／ [未署名APK artifact](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35208466578/artifacts/10490513922)
 
 - applicationId: `com.kazumaproject.markdownhelperkeyboard.feature`
-- versionName: `1.7.115-feature-double-tap-small-tsu-a8cff0503266`
-- versionCode: `1000000004`
-- APK SHA-256: `9076b7b74c07af56e631bdbdce7e8c77af8757db8772680a78e5aeac6e5a1a3d`
+- versionName: `1.7.115-feature-double-tap-small-tsu-cbcb50ded52d`
+- versionCode: `1000000009`
+- APK SHA-256: `2bfb3b6d2455463bdb82778904bafabf0fb7cb58611d9c53a1d08d8985ac4f1e`
 - 署名: なし。証明書SHA-256: なし。非debuggable、16KB整列検査成功。
 - GitHub Actions artifactの保存期間は30日。
 
