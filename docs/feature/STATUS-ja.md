@@ -2,8 +2,7 @@
 
 ## 完了範囲
 
-機能実装、設定、GitHubへの保存、単体／View回帰テスト、未署名Full Standard Feature APKの生成と検査は実施済み。
-最終ソースの実IME試験は再検証中。これは途中経過の記録です。
+機能実装、設定、GitHubへの保存、テスト、未署名Full Standard Feature APKの生成と検査。
 署名はユーザーの `feature-signing` Environment 作成報告待ち。保護設定の確認、署名、
 ユーザー実機での3者共存・更新インストールは未完了。**未署名APKはインストールできません。**
 
@@ -52,11 +51,31 @@ force-push、削除、上流PR・コメント、Release公開はしていない�
 
 ## 実行結果
 
-[run #9](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35208466578)でJVM 406件（core 62、custom_keyboard 239、app 105）とPython 4件が成功。
-実IME試験は通常表示の4条件を成功後、フローティングでテスト側が2つのrootを区別できず停止した。
-キーを取得したアクセシビリティwindow IDで対象を特定し、実時刻イベントを順序どおりpostする修正版を保存。
-[最終再検証run #10](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262) は実行中。
-実IME 20条件すべてが成功したとは報告していない。連続操作は実IMEのrootから送り、OS InputDispatcher全体の検証とは区別する。
+[最終CI run #10](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262) の verify・device は成功。sign は準備待ちのためスキップ。
+
+| 検証 | 件数 | 結果 |
+| --- | ---: | --- |
+| core JVM | 62 | 成功 |
+| custom_keyboard JVM / 実View | 239 | 成功 |
+| app JVM 回帰（対象は下記filters） | 105 | 成功 |
+| JVM合計（促音関連41件を含む） | 406 | 失敗・エラー・skip 0 |
+| 配布基盤Python | 4 | 成功 |
+| API 35 / x86_64 実IME instrumented test | 1メソッド・20条件 | 20条件すべて成功、skip 0 |
+
+[単体・回帰・APK検査レポート](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262/artifacts/10493210875) ／ [実IME結果・logcat](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262/artifacts/10492487858)
+
+実IMEの条件はTenKey／カスタムの通常・フローティング（各プレビューOFF/ONで計8条件）、
+Sumireのdefault・circle・sumire・second-flick・third-flick・center-guide-flick（各OFF/ONで計12条件）。
+各条件で機能OFFのカーソル基準、ONの単独入力・区切り後の組・重ならない組・タップ＋フリック・外部カーソル、
+ライブ変換ONで読みを継続し遅い候補で戻らないことを確認した。
+連続操作は起動中の実IMEのroot Viewから実Service・InputConnection・EditTextを通す。
+単独入力等はOS注入も使う。連続操作のテストをOS InputDispatcher全体やユーザー実機の検証とは扱わない。
+80組のイベント注入ログはUP→DOWN 80〜281ms、1回目押下 25〜119ms。
+これはテストの入力条件であり、製品の入力遅延ベンチマークではない。
+
+app filters: `*SmallTsu*`, `*FlickInputPreviewCoordinatorTest`, `*FlickTextMutationResolverTest`, `*ShortcutActiveStateResolverTest`, `*KeyboardLayout*Test`, `*KeyboardBackup*Test`, `*CandidateQueryPolicyTest`, `*ConversionLearningSessionTest`, `*ComposingTextArbiterTest`。
+core/custom_keyboardは全件、appは明示した回帰対象。appの全テストを実行したという意味ではない。
+ユーザー実機での操作、署名済みAPKの3者共存・A→B更新は未実施。
 
 実行コマンド:
 
@@ -68,7 +87,7 @@ bash ./gradlew :app:connectedFullStandardDebugAndroidTest -PfeatureDeviceTest=tr
   -Pandroid.testInstrumentationRunnerArguments.class=com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest \
   --no-daemon --console=plain --max-workers=2
 bash ./gradlew :app:assembleFullStandardFeature \
-  -PfeatureVersionCode=1000000009 -PfeatureBuildTag=double-tap-small-tsu-cbcb50ded52d \
+  -PfeatureVersionCode=1000000010 -PfeatureBuildTag=double-tap-small-tsu-165ba703cab4 \
   --no-daemon --console=plain --max-workers=2
 ```
 
@@ -94,24 +113,36 @@ UP→DOWN間隔と1回目の押下時間をログとassertで確認し、単独�
 フローティング時は、表示キーのアクセシビリティwindow IDと一致するrootを選ぶ。
 イベントはテストスレッドで実時刻を採取してメインスレッドへ順にpostし、最後のUPだけ処理完了を待つ。
 Viewの探索や各イベントの処理待ちを、テストの押下時間へ混ぜない。
+run #9は通常表示4条件の成功後、フローティングで複数rootの選別に停止した。
+このfixtureをwindow ID照合へ修正し、最終run #10で20条件すべてが成功した。
 
 基点は未確定範囲がある選択通知を早期returnするため、外部カーソル移動後も次の文字が
 従来の未確定末尾へ入る場合がある。今回の促音予約は破棄し、カーソル処理そのものは変更しない。
 
 ## 未署名APK
 
-以下は中間ソース `cbcb50ded52dd7f82b21400df5c2ea9f49afb238` の生成・検査済みAPK。上表の最終ソースとは区別する。
+[検査済み未署名Full Feature APK（ZIP artifact）](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262/artifacts/10493025958)
 
-[run #9](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35208466578) ／ [未署名APK artifact](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35208466578/artifacts/10490513922)
+| 項目 | 実体検査結果 |
+| --- | --- |
+| APK名 | `sumire-feature-double-tap-small-tsu-165ba703cab4-full-unsigned.apk` |
+| applicationId | `com.kazumaproject.markdownhelperkeyboard.feature` |
+| 表示名 | Sumire Feature |
+| versionName | `1.7.115-feature-double-tap-small-tsu-165ba703cab4` |
+| versionCode | `1000000010` |
+| variant | Full Standard Feature |
+| debuggable | false |
+| 署名 | なし（未署名） |
+| APK SHA-256 | `054db5a84a7c4b8e4d1d760ff3f3dce2554222b18ecaad66dc82d0d499db63ea` |
+| 署名証明書SHA-256 | なし（未署名のため） |
+| 整列 | zipalign 16KB検査成功 |
+| ソース | 上表の機能・基盤・検証SHAと一致 |
 
-- applicationId: `com.kazumaproject.markdownhelperkeyboard.feature`
-- versionName: `1.7.115-feature-double-tap-small-tsu-cbcb50ded52d`
-- versionCode: `1000000009`
-- APK SHA-256: `2bfb3b6d2455463bdb82778904bafabf0fb7cb58611d9c53a1d08d8985ac4f1e`
-- 署名: なし。証明書SHA-256: なし。非debuggable、16KB整列検査成功。
-- GitHub Actions artifactの保存期間は30日。
-
-**実機へのインストールはできない。**
+provider authorityは `.feature.fileprovider` と `.feature.androidx-startup`、
+アプリ固有permissionは `.feature.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`。
+設定Activityはこのアプリに含まれる元namespaceのMainActivityを参照する。
+arm64-v8a / x86_64 のZenz・LiteRT/Gemma・OpenMP native、Zenzモデル、辞書資産を保持。
+artifactの保存期間は30日。**未署名APKは実機へインストールできない。**
 
 APK内のManifest、IME設定先、provider authority、Full用ZenzモデルとARM64 native、
 Gemma runtime、辞書資産、非debuggable、16KB整列、未署名であることを検査する。
