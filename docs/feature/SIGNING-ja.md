@@ -35,6 +35,8 @@ Workは長期署名鍵を作成・取得しない。Previewの鍵・Secrets・En
 7. `sumire-feature-full-signed` artifactのAPKを取得する。証明書SHA-256は同artifactの
    `certificate-verification.txt`、ファイルSHA-256は `apk-sha256.txt`。2つの値は別物。
    固定証明書SHA-256を記録し、次回以降も一致を確認する。
+   署名済みAPK名にも機能名・短縮検証SHAが入る。`unsigned-provenance.json` は
+   署名前のAPKハッシュとソースの組み合わせであり、署名後のAPKハッシュは `apk-sha256.txt` を使う。
 
 署名ジョブは同じworkflow runの検査済みAPKだけを受け取り、ハッシュとAPK実体を再検査する。
 署名工程だけ失敗した場合は、そのジョブだけ再試行できる。新しいAPKは新規workflow実行で作る。
