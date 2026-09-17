@@ -5,6 +5,8 @@ import android.content.Intent
 import android.graphics.Rect
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 import android.view.InputDevice
 import android.view.View
 import android.view.ViewGroup
@@ -25,6 +27,9 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Uses the real IME and editor in an isolated disposable Feature testbench.
@@ -104,58 +109,62 @@ class SmallTsuImeDeviceTest {
         return roots.single()
     }
 
-    private fun stroke(rect: Rect, flick: Boolean = false, timedPair: Boolean = false): StrokeTime {
-        var start = 0L
-        var up = 0L
-        var root: View? = null
-        // Resolve the test target before starting the physical gesture's clock.
-        if (timedPair) ins.runOnMainSync { root = keyboardRootAt(rect) }
-        val actions = if (flick) listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP)
-            else listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)
-        for (action in actions) {
-            fun event(): MotionEvent {
-                val time = SystemClock.uptimeMillis()
-                if (action == MotionEvent.ACTION_DOWN) start = time
-                if (action == MotionEvent.ACTION_UP) up = time
-                return MotionEvent.obtain(start, time, action,
-                    rect.exactCenterX() - (if (flick && action != MotionEvent.ACTION_DOWN) rect.width().toFloat() else 0f),
-                    rect.exactCenterY(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
-            }
-            if (timedPair) {
-                // UiAutomation synchronizes window transactions even with sync=false.
-                // Public WindowInspector lets timed gestures enter the actual IME window
-                // on its main thread. The real service, editor and InputConnection remain
-                // active; this does not call a listener or a fake input implementation.
-                // Timestamp when the test sends the event, before any main-loop queueing,
-                // matching the event-time contract used by Android's input dispatcher.
-                val motion = event()
-                ins.runOnMainSync {
-                    val target = checkNotNull(root)
-                    val position = IntArray(2); target.getLocationOnScreen(position)
-                    motion.offsetLocation(-position[0].toFloat(), -position[1].toFloat())
-                    try { check(target.dispatchTouchEvent(motion)) } finally { motion.recycle() }
-                }
-            } else {
-                // Retain OS injection for the independent immediate-input and caret cases.
-                val motion = event()
-                try { check(automation.injectInputEvent(motion, true)) } finally { motion.recycle() }
-            }
-            if (action != MotionEvent.ACTION_UP) SystemClock.sleep(25)
-        }
-        return StrokeTime(start, up)
-    }
-
     private fun tap(rect: Rect) {
-        stroke(rect)
+        // Keep the OS path for independent immediate-input and editor-caret cases.
+        val start = SystemClock.uptimeMillis()
+        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
+            val motion = MotionEvent.obtain(start, SystemClock.uptimeMillis(), action,
+                rect.exactCenterX(), rect.exactCenterY(), 0)
+            motion.source = InputDevice.SOURCE_TOUCHSCREEN
+            try { check(automation.injectInputEvent(motion, true)) } finally { motion.recycle() }
+            if (action == MotionEvent.ACTION_DOWN) SystemClock.sleep(25)
+        }
         SystemClock.sleep(35)
     }
 
     private fun tapPair(rect: Rect, flickSecond: Boolean = false, gapMillis: Long = 80) {
-        val first = stroke(rect, timedPair = true)
+        var root: View? = null
+        // Select the actual key's window before starting the gesture clock.
+        ins.runOnMainSync { root = keyboardRootAt(rect) }
+        val target = checkNotNull(root)
+        val handler = Handler(Looper.getMainLooper())
+        val finished = CountDownLatch(1)
+        val failure = AtomicReference<Throwable?>()
+        fun enqueueStroke(flick: Boolean, last: Boolean): StrokeTime {
+            val start = SystemClock.uptimeMillis()
+            var up = start
+            val actions = if (flick) listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP)
+                else listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)
+            for (action in actions) {
+                val time = SystemClock.uptimeMillis()
+                if (action == MotionEvent.ACTION_UP) up = time
+                val motion = MotionEvent.obtain(start, time, action,
+                    rect.exactCenterX() - (if (flick && action != MotionEvent.ACTION_DOWN) rect.width().toFloat() else 0f),
+                    rect.exactCenterY(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+                // Queue timestamped events as the OS does. Waiting for each main-thread
+                // dispatch would turn test-runner overhead into an artificial long hold.
+                check(handler.post {
+                    try {
+                        val position = IntArray(2); target.getLocationOnScreen(position)
+                        motion.offsetLocation(-position[0].toFloat(), -position[1].toFloat())
+                        check(target.dispatchTouchEvent(motion))
+                    } catch (error: Throwable) { failure.compareAndSet(null, error) }
+                    finally {
+                        motion.recycle()
+                        if (last && action == MotionEvent.ACTION_UP) finished.countDown()
+                    }
+                })
+                if (action != MotionEvent.ACTION_UP) SystemClock.sleep(25)
+            }
+            return StrokeTime(start, up)
+        }
+        val first = enqueueStroke(flick = false, last = false)
         SystemClock.sleep(gapMillis)
-        val second = stroke(rect, flick = flickSecond, timedPair = true)
+        val second = enqueueStroke(flick = flickSecond, last = true)
         val interval = second.down - first.up
         android.util.Log.i("SmallTsuTest", "injected pair gap=${interval}ms firstHold=${first.up-first.down}ms")
+        check(finished.await(5, TimeUnit.SECONDS)) { "Real IME did not process the queued gesture" }
+        failure.get()?.let { throw it }
         assertTrue("Injected pair must be within the configured 500ms: $interval", interval in 0L..500L)
         assertTrue("First tap must not become a 300ms hold", first.up-first.down in 0L..299L)
         SystemClock.sleep(35)

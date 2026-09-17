@@ -67,3 +67,4 @@ IME内のフローティング辞書編集欄も、安全な入力先追跡の�
 Android 15の `UiAutomation` は `sync=false` でもwindow transactionの同期を行うため、短時間操作の再現にその呼出間隔を使わない（[API文書](https://developer.android.com/reference/android/app/UiAutomation#injectInputEvent(android.view.InputEvent,%20boolean))、[プラットフォーム実装](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-15.0.0_r1/core/java/android/app/UiAutomationConnection.java)）。
 
 フローティング試験ではドックとポップアップの両方のrootが残るため、実際の表示キーを取得したアクセシビリティwindow IDと一致するrootへ送信する。座標の重なりだけで対象windowを選ばない。
+入力時刻はテストスレッドで採取し、IMEメインスレッドへ順序どおりpostする。最後のUPの処理完了だけを待ち、View探索や各イベントの処理時間を押下時間へ混ぜない。
