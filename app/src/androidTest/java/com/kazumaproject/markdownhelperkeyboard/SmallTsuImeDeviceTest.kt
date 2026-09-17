@@ -103,6 +103,15 @@ class SmallTsuImeDeviceTest {
         return result
     }
 
+    private fun awaitLiveText(scenario: ActivityScenario<FastInputHostActivity>, expected:String, label:String) {
+        val deadline=SystemClock.uptimeMillis()+3000
+        while(SystemClock.uptimeMillis()<deadline) {
+            if(text(scenario)==expected)return
+            SystemClock.sleep(25)
+        }
+        assertEquals(label,expected,text(scenario))
+    }
+
     @Test fun realImeAndEditor_doubleTapAcrossKanaSurfaces() = runBlocking {
         val context=ins.targetContext
         check(context.packageName.endsWith(".feature.testbench")) { "Use isolated disposable emulator testbench" }
@@ -167,17 +176,17 @@ class SmallTsuImeDeviceTest {
                     val expected=if(offCursorResult=="かあか") "か$beforeMove" else "${beforeMove}か"
                     assertEquals("external cursor must preserve text and match feature OFF", expected,text(scenario))
                 }
-                // Allow a live conversion display update between taps, then check the
-                // canonical reading by appending with live display turned off.
+                // Allow a live display update between taps, then append a different key.
+                // The existing live conversion display is asynchronous; wait for that
+                // result, while the non-live cases above still assert immediate input.
                 check(prefs.edit().putBoolean("live_conversion_preference",true).commit())
                 ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
                     awaitStableKeyboard()
-                    val ka=key("か");val a=key("あ")
+                    val ka=key("か")
                     tap(ka);SystemClock.sleep(200);tap(ka)
                     SystemClock.sleep(600)
-                    check(prefs.edit().putBoolean("live_conversion_preference",false).commit())
-                    SystemClock.sleep(80);tap(a)
-                    assertEquals("live reading $surface/$style floating=$floating preview=$preview","っかあ",text(scenario))
+                    tap(key("あ"))
+                    awaitLiveText(scenario,"っかあ","live reading $surface/$style floating=$floating preview=$preview")
                     SystemClock.sleep(600)
                     assertEquals("late candidates must not restore first input","っかあ",text(scenario))
                 }
