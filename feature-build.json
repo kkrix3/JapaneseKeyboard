@@ -15,7 +15,7 @@
     "com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest"
   ],
   "featureRef": "feature/double-tap-small-tsu",
-  "featureSha": "933ed4d93c59978d9997c91f38e967c1cbac94d6",
+  "featureSha": "dc7a2e373a414b098151f9df4eac651b5fe510fd",
   "infrastructureRef": "build/feature-apk-infrastructure",
-  "infrastructureSha": "b3f936f142884685fbae78372329f94415e871ac"
+  "infrastructureSha": "f378cc17484299218f82e5d1cb29ca74da93a7df"
 }
