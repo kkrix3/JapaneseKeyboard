@@ -1,0 +1,237 @@
+name: Sumire Full Feature CI
+on:
+  push:
+    branches: ['verify/**']
+  pull_request:
+    branches: ['verify/**']
+  workflow_dispatch:
+    inputs:
+      sign:
+        description: '確認済みのコミットを専用Feature鍵で署名する（Environment承認が必要）'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: sumire-feature-distribution
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.repository == 'kkrix3/JapaneseKeyboard'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    outputs:
+      featureSha: ${{ steps.provenance.outputs.featureSha }}
+      infrastructureSha: ${{ steps.provenance.outputs.infrastructureSha }}
+      verificationSha: ${{ steps.provenance.outputs.verificationSha }}
+      versionCode: ${{ steps.provenance.outputs.versionCode }}
+    env:
+      ZENZ_DEBUG_NATIVE_ABIS: x86_64
+      ZENZ_RELEASE_NATIVE_ABIS: arm64-v8a,x86_64
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate provenance and allocate common Feature versionCode
+        id: provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/feature/prepare_build.py
+      - name: Install Full Android dependencies
+        run: |
+          echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+      - name: Unit and integration regression tests
+        run: |
+          python3 -m unittest discover -s scripts/feature -p 'test_*.py' -v
+          python3 scripts/feature/run_tests.py
+      - name: Build unsigned Full Standard Feature
+        run: |
+          bash ./gradlew :app:assembleFullStandardFeature -PfeatureVersionCode="$FEATURE_VERSION_CODE" -PfeatureBuildTag="$FEATURE_BUILD_TAG" --no-daemon --console=plain --max-workers=2
+          python3 scripts/feature/verify_apk.py "app/build/outputs/apk/fullStandard/feature/sumire-feature-$FEATURE_BUILD_TAG-fullStandard-unsigned.apk" --output-dir feature-artifact
+      - name: Upload inspected unsigned Full Feature
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sumire-feature-full-unsigned
+          path: feature-artifact/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Upload verification reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: feature-verification-reports
+          path: |
+            core/build/test-results/
+            custom_keyboard/build/test-results/
+            app/build/test-results/testFullStandardDebugUnitTest/
+            feature-build-resolved.json
+            feature-apk-inspection.txt
+          retention-days: 30
+
+  device:
+    if: github.repository == 'kkrix3/JapaneseKeyboard'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      ZENZ_DEBUG_NATIVE_ABIS: x86_64
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate the same source combination
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/feature/prepare_build.py
+      - name: Install Full Android dependencies
+        run: |
+          echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test actual IME on API 35
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6_pro
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          disk-size: 8192M
+          enable-hw-keyboard: false
+          disable-animations: true
+          disable-spellchecker: true
+          pre-emulator-launch-script: >-
+            avd_config="${ANDROID_AVD_HOME}/test.avd/config.ini" &&
+            sed -i '/^[[:space:]]*hw\.keyboard[[:space:]]*=/d' "$avd_config" &&
+            printf '%s\n' 'hw.keyboard=no' >> "$avd_config"
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/feature/device_tests.sh
+      - name: Upload IME device reports (no disposable Debug APK)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: feature-ime-device-reports
+          path: |
+            feature-device-reports/
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+          retention-days: 30
+
+  sign:
+    needs: [verify, device]
+    if: >-
+      github.event_name == 'workflow_dispatch' && inputs.sign == true &&
+      github.repository == 'kkrix3/JapaneseKeyboard' &&
+      startsWith(github.ref, 'refs/heads/verify/') &&
+      github.workflow_ref == format('kkrix3/JapaneseKeyboard/.github/workflows/feature-ci.yml@{0}', github.ref) &&
+      github.actor == 'kkrix3' && github.triggering_actor == 'kkrix3' &&
+      vars.FEATURE_SIGNING_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: feature-signing
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      # No checkout, Gradle, repository scripts or cache may run in this job.
+      - name: Download only this run's inspected unsigned APK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: sumire-feature-full-unsigned
+          path: unsigned
+      - name: Install signing tools without keys
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;36.0.0"'
+      - name: Recheck actual APK and provenance before receiving keys
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          FEATURE_SHA: ${{ needs.verify.outputs.featureSha }}
+          INFRA_SHA: ${{ needs.verify.outputs.infrastructureSha }}
+          VERIFY_SHA: ${{ needs.verify.outputs.verificationSha }}
+          VERSION_CODE: ${{ needs.verify.outputs.versionCode }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,re,subprocess,zipfile
+          root=pathlib.Path('unsigned');meta=json.loads((root/'metadata.json').read_text())
+          assert meta['verificationSha']==os.environ['EXPECTED_SHA']==os.environ['VERIFY_SHA']
+          assert meta['featureSha']==os.environ['FEATURE_SHA'] and meta['infrastructureSha']==os.environ['INFRA_SHA']
+          assert all(re.fullmatch('[0-9a-f]{40}',meta[k]) for k in ['featureSha','infrastructureSha','verificationSha'])
+          assert meta['repository']=='kkrix3/JapaneseKeyboard' and meta['runId']==os.environ['GITHUB_RUN_ID']
+          assert meta['versionCode']==int(os.environ['VERSION_CODE'])==1000000000+int(os.environ['GITHUB_RUN_NUMBER'])
+          assert 1000000000 < meta['versionCode'] <= 2100000000
+          name=meta['apkFile'];assert re.fullmatch(r'sumire-feature-[a-z0-9._-]+-full-unsigned\.apk',name)
+          assert sorted(p.name for p in root.iterdir())==sorted(['metadata.json',name])
+          apk=root/name;assert meta['sha256']==hashlib.file_digest(open(apk,'rb'),'sha256').hexdigest()
+          sdk=pathlib.Path(os.environ['ANDROID_HOME'])/'build-tools/36.0.0'
+          badge=subprocess.check_output([str(sdk/'aapt'),'dump','badging',str(apk)],text=True)
+          assert "name='com.kazumaproject.markdownhelperkeyboard.feature'" in badge.splitlines()[0]
+          assert f"versionCode='{meta['versionCode']}'" in badge.splitlines()[0]
+          assert f"versionName='{meta['versionName']}'" in badge.splitlines()[0]
+          assert "application-label:'Sumire Feature'" in badge and 'application-debuggable' not in badge
+          subprocess.run([str(sdk/'zipalign'),'-c','-P','16','4',str(apk)],check=True)
+          assert subprocess.run([str(sdk/'apksigner'),'verify',str(apk)],capture_output=True).returncode != 0
+          with zipfile.ZipFile(apk) as z:
+              names=z.namelist()
+              assert not any(re.search(r'(?i)(keystore|\.(jks|p12|pfx|pem|key)$|local\.properties$)',n) for n in names)
+              assert 'lib/arm64-v8a/libzenz.so' in names
+              assert any('litert' in n.lower() and n.startswith('lib/arm64-v8a/') for n in names)
+              assert any('ggml-model' in n and n.endswith('.gguf') for n in names)
+          with open(os.environ['GITHUB_ENV'],'a') as f:
+              f.write(f'FEATURE_UNSIGNED_APK={apk}\n')
+              f.write('FEATURE_SIGNED_APK='+name.removesuffix('-unsigned.apk')+'-signed.apk\n')
+          PY
+      - name: Sign using user-managed Feature Environment secrets
+        env:
+          FEATURE_KEYSTORE_BASE64: ${{ secrets.FEATURE_KEYSTORE_BASE64 }}
+          FEATURE_KEYSTORE_PASSWORD: ${{ secrets.FEATURE_KEYSTORE_PASSWORD }}
+          FEATURE_KEY_ALIAS: ${{ secrets.FEATURE_KEY_ALIAS }}
+          FEATURE_KEY_PASSWORD: ${{ secrets.FEATURE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          set +x
+          test -n "$FEATURE_KEYSTORE_BASE64" && test -n "$FEATURE_KEYSTORE_PASSWORD" && test -n "$FEATURE_KEY_ALIAS" && test -n "$FEATURE_KEY_PASSWORD"
+          umask 077
+          keydir=$(mktemp -d "$RUNNER_TEMP/feature-signing.XXXXXX")
+          trap 'rm -rf -- "$keydir"' EXIT
+          printf '%s' "$FEATURE_KEYSTORE_BASE64" | base64 --decode > "$keydir/feature.jks"
+          unset FEATURE_KEYSTORE_BASE64
+          mkdir signed
+          sdk="$ANDROID_HOME/build-tools/36.0.0"
+          "$sdk/apksigner" sign --ks "$keydir/feature.jks" --ks-key-alias "$FEATURE_KEY_ALIAS" --ks-pass env:FEATURE_KEYSTORE_PASSWORD --key-pass env:FEATURE_KEY_PASSWORD --v4-signing-enabled false --out "signed/$FEATURE_SIGNED_APK" "$FEATURE_UNSIGNED_APK"
+          "$sdk/apksigner" verify --verbose --print-certs "signed/$FEATURE_SIGNED_APK" > signed/certificate-verification.txt
+          "$sdk/zipalign" -c -P 16 4 "signed/$FEATURE_SIGNED_APK"
+          (cd signed && sha256sum "$FEATURE_SIGNED_APK" > apk-sha256.txt)
+          cp unsigned/metadata.json signed/unsigned-provenance.json
+          cat signed/certificate-verification.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sumire-feature-full-signed
+          path: |
+            signed/*.apk
+            signed/certificate-verification.txt
+            signed/apk-sha256.txt
+            signed/unsigned-provenance.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
