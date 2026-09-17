@@ -107,11 +107,13 @@ class SmallTsuImeDeviceTest {
                 // Public WindowInspector lets timed gestures enter the actual IME window
                 // on its main thread. The real service, editor and InputConnection remain
                 // active; this does not call a listener or a fake input implementation.
+                // Timestamp when the test sends the event, before any main-loop queueing,
+                // matching the event-time contract used by Android's input dispatcher.
+                val motion = event()
                 ins.runOnMainSync {
                     if (action == MotionEvent.ACTION_DOWN) root = keyboardRootAt(rect)
                     val target = checkNotNull(root)
                     val position = IntArray(2); target.getLocationOnScreen(position)
-                    val motion = event()
                     motion.offsetLocation(-position[0].toFloat(), -position[1].toFloat())
                     try { check(target.dispatchTouchEvent(motion)) } finally { motion.recycle() }
                 }
