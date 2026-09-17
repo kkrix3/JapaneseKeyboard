@@ -50,7 +50,9 @@ jobs:
           echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
       - name: Unit and integration regression tests
-        run: python3 scripts/feature/run_tests.py
+        run: |
+          python3 -m unittest discover -s scripts/feature -p 'test_*.py' -v
+          python3 scripts/feature/run_tests.py
       - name: Build unsigned Full Standard Feature
         run: |
           bash ./gradlew :app:assembleFullStandardFeature -PfeatureVersionCode="$FEATURE_VERSION_CODE" -PfeatureBuildTag="$FEATURE_BUILD_TAG" --no-daemon --console=plain --max-workers=2
@@ -76,8 +78,69 @@ jobs:
             feature-apk-inspection.txt
           retention-days: 30
 
+  device:
+    if: github.repository == 'kkrix3/JapaneseKeyboard'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      ZENZ_DEBUG_NATIVE_ABIS: x86_64
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+          submodules: recursive
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Validate the same source combination
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/feature/prepare_build.py
+      - name: Install Full Android dependencies
+        run: |
+          echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Test actual IME on API 35
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6_pro
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          disk-size: 8192M
+          enable-hw-keyboard: false
+          disable-animations: true
+          disable-spellchecker: true
+          pre-emulator-launch-script: >-
+            avd_config="${ANDROID_AVD_HOME}/test.avd/config.ini" &&
+            sed -i '/^[[:space:]]*hw\.keyboard[[:space:]]*=/d' "$avd_config" &&
+            printf '%s\n' 'hw.keyboard=no' >> "$avd_config"
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: bash scripts/feature/device_tests.sh
+      - name: Upload IME device reports (no disposable Debug APK)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: feature-ime-device-reports
+          path: |
+            feature-device-reports/
+            app/build/reports/androidTests/connected/
+            app/build/outputs/androidTest-results/connected/
+          retention-days: 30
+
   sign:
-    needs: verify
+    needs: [verify, device]
     if: >-
       github.event_name == 'workflow_dispatch' && inputs.sign == true &&
       github.repository == 'kkrix3/JapaneseKeyboard' &&

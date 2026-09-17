@@ -25,7 +25,7 @@ Workは長期署名鍵を作成・取得しない。Previewの鍵・Secrets・En
    `[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\keys\sumire-feature.jks')) | Set-Clipboard`
    GitHubのSecret欄に貼り付け、作業後にクリップボードを消去。チャット、Issue、ログへ貼らない。
 4. 別途用意した手動入口のDraft PRを確認し、ユーザー自身でpreviewへ反映する。
-   devや既定ブランチは変更しない。Feature機能そのものをpreviewへ取り込む操作ではない。
+   devと既定ブランチの選択は変更しない。Feature機能そのものをpreviewへ取り込む操作ではない。
 5. Environmentの保護・鍵・バックアップを確認後、Repository Actions variable
    `FEATURE_SIGNING_ENABLED` を `true` にする (Secretではない)。
 6. 所有者kkrix3としてActions → Sumire Full Feature CI → Run workflowを開き、
@@ -49,5 +49,6 @@ PCでは `python3 scripts/feature/verify_update_pair.py A.apk B.apk` の後 `adb
 導入済みAで一般設定、カスタムキーボード、辞書を変更し、B更新後も保持されることを確認。
 署名していない状態でこのA→B試験を実施済みとは扱わない。
 
-設定画面のブラウザー確認はアクセス承認が拒否され実行できなかった。Environmentの存在、
+2026-09-17時点でユーザーからEnvironmentは未作成との連絡あり。作成完了の報告まで署名は待機。
+設定画面のブラウザー確認はアクセス承認が拒否され実行できなかった。
 Required reviewers／自己承認／branch制限の利用可能性は未確認。上の確認を完了するまで署名を有効化しない。

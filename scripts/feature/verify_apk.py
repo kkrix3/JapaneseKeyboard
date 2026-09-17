@@ -4,6 +4,16 @@ import argparse, hashlib, json, os, re, shutil, subprocess, zipfile
 from pathlib import Path
 APP='com.kazumaproject.markdownhelperkeyboard.feature'
 
+def method_resource_path(resources):
+    # Release resource optimization may shorten res/xml/method.xml to res/<id>.xml.
+    # Resolve the named resource from the compiled table instead of assuming a ZIP path.
+    entry=re.search(r'^\s*resource (0x[0-9a-fA-F]+) (?:\S+:)?xml/method\b([^\n]*\n.*?)(?=^\s*resource |\Z)',
+                    resources,re.M|re.S)
+    assert entry, 'xml/method is missing from the compiled resource table'
+    paths=re.findall(r'\(file\) (res/[^\s]+\.xml) type=XML',entry[2])
+    assert len(set(paths))==1, f'Expected one method.xml resource: {paths}'
+    return entry[1],paths[0]
+
 def inspect(apk, code):
     tools=Path(os.environ['ANDROID_HOME'])/'build-tools/36.0.0'
     def aapt(*args): return subprocess.check_output([str(tools/'aapt'),*args,str(apk)],text=True)
@@ -19,7 +29,10 @@ def inspect(apk, code):
     assert APP+'.fileprovider' in authorities
     assert '.gemma.runtime.GemmaRuntimeService' in manifest and '.zenz.runtime.ZenzRuntimeService' in manifest
     assert '.setting_activity.MainActivity' in manifest and '.ime_service.IMEService' in manifest
-    method=subprocess.check_output([str(tools/'aapt'),'dump','xmltree',str(apk),'res/xml/method.xml'],text=True)
+    resources=subprocess.check_output([str(tools/'aapt2'),'dump','resources',str(apk)],text=True)
+    resource_id,method_path=method_resource_path(resources)
+    assert re.search(r'android:resource[^\n]*@'+resource_id+r'\b',manifest), 'IME metadata must reference xml/method'
+    method=subprocess.check_output([str(tools/'aapt'),'dump','xmltree',str(apk),method_path],text=True)
     assert 'com.kazumaproject.markdownhelperkeyboard.setting_activity.MainActivity' in method
     subprocess.run([str(tools/'zipalign'),'-c','-P','16','4',str(apk)],check=True)
     sig=subprocess.run([str(tools/'apksigner'),'verify',str(apk)],capture_output=True)

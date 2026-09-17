@@ -23,6 +23,11 @@ verify/**のpushで秘密なしCIが起動する。元の公開・同期workflow
 非debug・16KB整列・未署名・モデル・native・authority・設定先を実体検査する。
 通常push/PRで署名しない。署名ジョブにはcheckout／Gradle／リポジトリスクリプト／キャッシュなし。
 
+実IMEテストは `feature-build.json` の `deviceTestClasses` をAPI 35エミュレーターで実行する。
+Full Debugのテスト専用ID `.feature.testbench` を `-PfeatureDeviceTest=true` で選び、
+配布APKには使わずartifactにも含めない。署名には単体・APK検査と実IMEテストの両job成功が必要。
+リソース最適化後のIME XMLはコンパイル済みリソース表から解決して検査する。
+
 ## 共通versionCode
 
 同じ `.github/workflows/feature-ci.yml` のGitHub共通 `run_number` + 1,000,000,000。
