@@ -5,14 +5,17 @@
     "*FlickTextMutationResolverTest",
     "*ShortcutActiveStateResolverTest",
     "*KeyboardLayout*Test",
-    "*KeyboardBackup*Test"
+    "*KeyboardBackup*Test",
+    "*CandidateQueryPolicyTest",
+    "*ConversionLearningSessionTest",
+    "*ComposingTextArbiterTest"
   ],
   "baseSha": "a47715a453cee3ecb40e9757ffbd7d4790ce7ae9",
-  "featureRef": "feature/double-tap-small-tsu",
-  "featureSha": "d0f5a907d446e146555d87dfef50a13fd65d0e89",
-  "infrastructureRef": "build/feature-apk-infrastructure",
-  "infrastructureSha": "b3f936f142884685fbae78372329f94415e871ac",
   "deviceTestClasses": [
     "com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest"
-  ]
+  ],
+  "featureRef": "feature/double-tap-small-tsu",
+  "featureSha": "933ed4d93c59978d9997c91f38e967c1cbac94d6",
+  "infrastructureRef": "build/feature-apk-infrastructure",
+  "infrastructureSha": "b3f936f142884685fbae78372329f94415e871ac"
 }
