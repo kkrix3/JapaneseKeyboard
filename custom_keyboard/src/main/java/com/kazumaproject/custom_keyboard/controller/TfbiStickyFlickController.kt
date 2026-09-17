@@ -49,6 +49,7 @@ class TfbiStickyFlickController(
     interface TfbiListener {
         fun onPress(first: TfbiFlickDirection, second: TfbiFlickDirection)
         fun onFlick(first: TfbiFlickDirection, second: TfbiFlickDirection)
+        fun onHold() {}
     }
 
     private enum class FlickState { NEUTRAL, FIRST_FLICK_DETERMINED }
@@ -92,6 +93,7 @@ class TfbiStickyFlickController(
     private val longPressRunnable = Runnable {
         val view = attachedView ?: return@Runnable
         if (flickState != FlickState.NEUTRAL || activeGestureConfig == null) return@Runnable
+        listener?.onHold()
         popupWindow?.dismiss()
         showPopup(view, TfbiFlickDirection.TAP, true)
     }
