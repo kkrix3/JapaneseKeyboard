@@ -132,7 +132,9 @@ class SmallTsuImeDeviceTest {
                 Triple("TENKEY","default",true),Triple("CUSTOM","default",true)) +
                 listOf("default","circle","sumire","second-flick","third-flick","center-guide-flick")
                     .map { Triple("SUMIRE",it,false) }
+            val failures=mutableListOf<String>()
             for((surface,style,floating) in cases) for(preview in listOf(false,true)) {
+                try {
                 check(prefs.edit().putString("keyboard_order_preference","[\"$surface\"]")
                     .putBoolean("save_last_used_keyboard",false)
                     .putBoolean("keyboard_floating_preference",floating)
@@ -190,7 +192,14 @@ class SmallTsuImeDeviceTest {
                     SystemClock.sleep(600)
                     assertEquals("late candidates must not restore first input","っかあ",text(scenario))
                 }
+                android.util.Log.i("SmallTsuTest","PASS $surface/$style floating=$floating preview=$preview")
+                } catch(failure:AssertionError) {
+                    val label="$surface/$style floating=$floating preview=$preview: ${failure.message}"
+                    failures.add(label)
+                    android.util.Log.e("SmallTsuTest",label,failure)
+                }
             }
+            assertTrue(failures.joinToString("\n"),failures.isEmpty())
         } finally {
             if(oldIme.isNotEmpty() && oldIme!="null") shell("ime set $oldIme")
             db.close()
