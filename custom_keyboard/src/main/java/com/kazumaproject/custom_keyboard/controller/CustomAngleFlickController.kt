@@ -55,6 +55,7 @@ class CustomAngleFlickController(
         fun onFlickDirectionChanged(newDirection: CircularFlickDirection)
         fun onSelectionChanged(action: FlickAction?, isFlick: Boolean) {}
         fun onCanceled() {}
+        fun onHold() {}
     }
 
     var listener: FlickListener? = null
@@ -240,6 +241,7 @@ class CustomAngleFlickController(
                 longPressJob?.cancel()
                 longPressJob = controllerScope.launch {
                     delay(gestureConfig.longPressTimeoutMillis)
+                    listener?.onHold()
                     isLongPressModeActive = true
                     popupView.setFullUIMode(true)
                     popupView.invalidate()

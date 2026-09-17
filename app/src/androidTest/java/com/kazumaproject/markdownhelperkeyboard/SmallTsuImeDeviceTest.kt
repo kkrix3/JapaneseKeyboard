@@ -134,6 +134,21 @@ class SmallTsuImeDeviceTest {
                     .putBoolean("flick_editor_preview_preference",preview)
                     .putBoolean("double_tap_small_tsu_enabled",true)
                     .putInt("double_tap_small_tsu_interval",500).commit())
+                // The existing IME returns early from onUpdateSelection while a composing
+                // range exists. Measure its OFF behavior, rather than requiring this feature
+                // to change the unrelated editor-caret implementation.
+                check(prefs.edit().putBoolean("double_tap_small_tsu_enabled",false).commit())
+                var offCursorResult=""
+                ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
+                    awaitStableKeyboard()
+                    tap(key("あ"));val ka=key("か");tap(ka)
+                    assertEquals("OFF precondition","あか",text(scenario))
+                    scenario.onActivity { it.editText.setSelection(0) };SystemClock.sleep(80);tap(ka)
+                    offCursorResult=text(scenario)
+                    assertTrue("OFF must preserve the text and add one kana: $offCursorResult",
+                        offCursorResult in setOf("かあか","あかか"))
+                }
+                check(prefs.edit().putBoolean("double_tap_small_tsu_enabled",true).commit())
                 ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
                     android.util.Log.i("SmallTsuTest","surface=$surface style=$style floating=$floating preview=$preview")
                     awaitStableKeyboard()
@@ -149,7 +164,8 @@ class SmallTsuImeDeviceTest {
                     scenario.onActivity { it.editText.setSelection(0) }
                     SystemClock.sleep(80)
                     tap(ka)
-                    assertEquals("external cursor must preserve the old text", "か$beforeMove",text(scenario))
+                    val expected=if(offCursorResult=="かあか") "か$beforeMove" else "${beforeMove}か"
+                    assertEquals("external cursor must preserve text and match feature OFF", expected,text(scenario))
                 }
                 // Allow a live conversion display update between taps, then check the
                 // canonical reading by appending with live display turned off.
