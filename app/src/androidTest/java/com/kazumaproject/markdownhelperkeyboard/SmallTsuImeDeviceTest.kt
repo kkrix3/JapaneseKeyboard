@@ -108,6 +108,8 @@ class SmallTsuImeDeviceTest {
         var start = 0L
         var up = 0L
         var root: View? = null
+        // Resolve the test target before starting the physical gesture's clock.
+        if (timedPair) ins.runOnMainSync { root = keyboardRootAt(rect) }
         val actions = if (flick) listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP)
             else listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)
         for (action in actions) {
@@ -128,7 +130,6 @@ class SmallTsuImeDeviceTest {
                 // matching the event-time contract used by Android's input dispatcher.
                 val motion = event()
                 ins.runOnMainSync {
-                    if (action == MotionEvent.ACTION_DOWN) root = keyboardRootAt(rect)
                     val target = checkNotNull(root)
                     val position = IntArray(2); target.getLocationOnScreen(position)
                     motion.offsetLocation(-position[0].toFloat(), -position[1].toFloat())
