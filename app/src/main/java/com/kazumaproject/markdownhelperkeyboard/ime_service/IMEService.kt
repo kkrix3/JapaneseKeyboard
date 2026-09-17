@@ -139,6 +139,13 @@ import com.kazumaproject.core.domain.extensions.toZenkaku
 import com.kazumaproject.core.domain.extensions.toZenkakuAlphabet
 import com.kazumaproject.core.domain.extensions.toZenkakuKatakana
 import com.kazumaproject.core.domain.flick.FlickThresholdShape
+import com.kazumaproject.core.domain.small_tsu.KanaGestureObserver
+import com.kazumaproject.core.domain.small_tsu.SmallTsuSettings
+import com.kazumaproject.core.domain.small_tsu.SmallTsuSession
+import com.kazumaproject.core.domain.small_tsu.SmallTsuSnapshot
+import com.kazumaproject.markdownhelperkeyboard.ime_service.small_tsu.ReadingStateFlow
+import com.kazumaproject.markdownhelperkeyboard.ime_service.small_tsu.SmallTsuSelectionGuard
+import com.kazumaproject.markdownhelperkeyboard.setting_activity.SmallTsuPreferences
 import com.kazumaproject.core.domain.flick.FlickTextPreviewListener
 import com.kazumaproject.core.domain.flick.MutableRuntimeGestureSettingsSource
 import com.kazumaproject.core.domain.flick.RuntimeGestureSettings
@@ -925,6 +932,10 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     )
     private val runtimeInputPreferenceListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            runOnMainThread { invalidateSmallTsu() }
+            if (key == null || key in SmallTsuPreferences.keys) {
+                runOnMainThread { syncSmallTsuPreferences() }
+            }
             if (key != null && key in runtimeInputPreferenceKeys) {
                 runOnMainThread {
                     syncRuntimeInputPreferences()
@@ -1591,7 +1602,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private var isGemmaBackInvokedCallbackRegistered: Boolean = false
     private val suggestionProgressReasons = mutableSetOf<SuggestionProgressReason>()
     private var isInputViewActive: Boolean = false
-    private val _inputString = MutableStateFlow("")
+    private val _inputString = ReadingStateFlow("")
     private val inputString = _inputString.asStateFlow()
     private var stringInTail = AtomicReference("")
     private var physicalCandidateCompositionSession: PhysicalCandidateCompositionSession? = null
@@ -1649,11 +1660,83 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private val rightCursorKeyLongKeyPressed = AtomicBoolean(false)
     private val leftCursorKeyLongKeyPressed = AtomicBoolean(false)
     private var isFlickOnlyMode: Boolean? = false
+    private var smallTsuSettings = SmallTsuSettings()
+    private val smallTsuSession = SmallTsuSession()
+    private val smallTsuSelection = SmallTsuSelectionGuard()
+    private var smallTsuReplacement: Pair<String, String>? = null
+    private var smallTsuBoundary = 0L
+
+    private fun invalidateSmallTsu() {
+        smallTsuSession.cancel()
+        smallTsuReplacement = null
+        smallTsuBoundary++
+    }
+
+    private fun smallTsuSnapshot(): SmallTsuSnapshot? {
+        val connection = currentInputConnection ?: return null
+        val custom = qwertyMode.value == TenKeyQWERTYMode.Custom
+        if (!smallTsuSettings.enabled || !smallTsuSelection.safe ||
+            currentInputBehavior != ResolvedInputBehavior.COMPOSING_TEXT ||
+            currentInputType in passwordTypes || currentInputType in numberTypes ||
+            currentInputType == InputTypeForIME.None ||
+            isKeyboardLayoutEditModeActive() || editorTextSelected || selectMode.value ||
+            cursorMoveMode.value || isHenkan.get() || stringInTail.get().isNotEmpty() ||
+            dictionaryInputConnection != null) return null
+        if (custom) {
+            if (isCustomLayoutDirectMode || isCustomLayoutRomajiMode) return null
+        } else if (qwertyMode.value !in setOf(TenKeyQWERTYMode.Default, TenKeyQWERTYMode.Sumire) ||
+            isFlickOnlyMode != true) return null
+        return SmallTsuSnapshot(connection, flickPreviewEditorSessionId, _inputString.revision,
+            "${qwertyMode.value}:$currentInputModeForSession:$customKeyboardMode:$smallTsuBoundary", inputString.value)
+    }
+
+    private val kanaGestureObserver = object : KanaGestureObserver {
+        override fun down(key: String, eventTime: Long) {
+            smallTsuSession.down(key, eventTime, smallTsuSnapshot(), smallTsuSettings)
+        }
+        override fun cancel() = invalidateSmallTsu()
+        override fun text(text: String, tap: Boolean, eventTime: Long, dispatch: () -> Unit) {
+            // The multi-character immediate-commit option must keep its original meaning.
+            if (qwertyMode.value == TenKeyQWERTYMode.Custom && text.length > 1 &&
+                isCustomKeyboardTwoWordsOutputEnable == true) {
+                invalidateSmallTsu(); dispatch(); return
+            }
+            smallTsuSession.text(text, tap, eventTime, smallTsuSettings, ::smallTsuSnapshot) { replacement ->
+                smallTsuReplacement = replacement?.let { text to it }
+                try { dispatch() } finally { smallTsuReplacement = null }
+            }
+        }
+    }
+
+    private fun applySmallTsuReplacement(text: String): Boolean {
+        val pending = smallTsuReplacement?.takeIf { it.first == text } ?: return false
+        smallTsuReplacement = null
+        // Discard the transient second-stroke preview before installing the new canonical reading.
+        flickInputPreviewCoordinator.cancel(restore = false)
+        candidateRequestTracker.invalidate()
+        editorMutationRevision.advance()
+        clearZenzLiveSlot("double tap small tsu")
+        conversionLearningSession.cancel()
+        suggestionClickNum = 0
+        _dakutenPressed.value = false
+        englishSpaceKeyPressed.set(false)
+        onDeleteLongPressUp.set(false)
+        isContinuousTapInputEnabled.set(true)
+        lastFlickConvertedNextHiragana.set(true)
+        _inputString.value = pending.second
+        // The existing flow refreshes conversion candidates; show the new reading immediately.
+        setComposingText(pending.second, 1)
+        return true
+    }
+
     private var flickEditorPreviewPreference: Boolean = false
     private var flickPreviewEditorSessionId: Long = 0L
     private val composingTextArbiter = ComposingTextArbiter(
         writeComposingText = { text, cursorPosition ->
-            currentInputConnection?.setComposingText(text, cursorPosition) ?: false
+            val applied = currentInputConnection?.setComposingText(text, cursorPosition) ?: false
+            if (applied) smallTsuSelection.wrote(text?.length ?: 0, cursorPosition)
+            else invalidateSmallTsu()
+            applied
         },
         finishComposingText = {
             currentInputConnection?.finishComposingText() ?: false
@@ -3251,6 +3334,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onCreateInputView(): View? {
+        invalidateSmallTsu()
         stopSplitKeyboard()
         composingGuide?.stop()
         Timber.d("onCreateInputView")
@@ -3302,6 +3386,8 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        invalidateSmallTsu()
+        smallTsuSelection.reset(attribute?.initialSelStart ?: -1, attribute?.initialSelEnd ?: -1)
         composingGuide?.stop()
         super.onStartInput(attribute, restarting)
         resetCustomToggleState()
@@ -3396,7 +3482,14 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
      * already-inflated keyboard surface. The same AppPreference keys used by the settings
      * screen are read here; no second preference store is involved.
      */
+    private fun syncSmallTsuPreferences() {
+        smallTsuSettings = SmallTsuPreferences.read(runtimeInputSharedPreferences)
+        invalidateSmallTsu()
+        updateShortcutActiveStates()
+    }
+
     private fun syncRuntimeInputPreferences() {
+        syncSmallTsuPreferences()
         assertMainThread("syncRuntimeInputPreferences")
 
         val previousInlineSuggestionEnabled = inlineSuggestionEnabled
@@ -5437,6 +5530,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onStartInputView(editorInfo: EditorInfo?, restarting: Boolean) {
+        invalidateSmallTsu()
         stopSplitKeyboard()
         super.onStartInputView(editorInfo, restarting)
         flickInputPreviewCoordinator.cancel(restore = true)
@@ -5834,6 +5928,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onFinishInput() {
+        invalidateSmallTsu()
         stopSplitKeyboard()
         if (!dictionaryConfigurationChanging) dictionaryFloats?.endSession()
         composingGuide?.stop()
@@ -5847,6 +5942,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        invalidateSmallTsu()
         stopSplitKeyboard()
         if (!dictionaryConfigurationChanging) dictionaryFloats?.endSession()
         composingGuide?.stop()
@@ -7231,6 +7327,9 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         super.onUpdateSelection(
             oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd
         )
+        if (!smallTsuSelection.selection(newSelStart, newSelEnd, candidatesStart, candidatesEnd)) {
+            invalidateSmallTsu()
+        }
         forwardDeleteCoordinator.onSelectionChanged(newSelStart, newSelEnd)
         invalidateCustomToggleStateForSelection(newSelStart, newSelEnd)
         // Skip if composing text is active
@@ -7342,6 +7441,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        invalidateSmallTsu()
         dictionaryInputEditor?.let { editor ->
             if (event != null && keyCode != KeyEvent.KEYCODE_BACK) {
                 switchDictionaryInputTarget(editor)
@@ -9906,6 +10006,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private fun configureFloatingTenKeyView(
         floatingKeyboardLayoutBinding: FloatingKeyboardLayoutBinding
     ) {
+        floatingKeyboardLayoutBinding.keyboardViewFloating.kanaGestureObserver = kanaGestureObserver
         floatingKeyboardLayoutBinding.keyboardViewFloating.setOnFlickTextPreviewListener(
             tenKeyFlickTextPreviewListener
         )
@@ -10063,6 +10164,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             setOnAttachedToWindowListener {
                 rebindMainKeyboardInputListeners(mainView)
             }
+            kanaGestureObserver = this@IMEService.kanaGestureObserver
             setOnFlickTextPreviewListener(tenKeyFlickTextPreviewListener)
             applyKeyboardTheme(
                 skinId = keyboardSkinId,
@@ -12757,6 +12859,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     private fun updateKeyboardLayout() {
+        invalidateSmallTsu()
         Timber.d("updateKeyboardLayout: ${qwertyMode.value} $currentEnterKeyIndex")
         when (qwertyMode.value) {
             TenKeyQWERTYMode.Custom -> {}
@@ -13418,6 +13521,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         mainView: MainLayoutBinding,
         isFloatingView: Boolean
     ) {
+        flickView.kanaGestureObserver = kanaGestureObserver
         flickView.setOnFlickTextPreviewListener(sumireFlickTextPreviewListener)
         flickView.bindRuntimeGestureSettings(runtimeGestureSettingsSource)
         val tfbiPopupPresentationMode = appPreference.flick_tfbi_popup_presentation
@@ -14267,6 +14371,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             }
 
             override fun onToggleText(keyIdentity: String, values: List<String>) {
+                invalidateSmallTsu()
                 activateSplitView(flickView)
                 if (isKeyboardLayoutEditModeActive()) return
                 handleKeyReleaseFeedback()
@@ -14287,6 +14392,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             }
 
             override fun onAction(action: KeyAction, isFlick: Boolean) {
+                if (action !is KeyAction.Text) invalidateSmallTsu()
                 activateSplitView(flickView)
                 if (isKeyboardLayoutEditModeActive()) return
                 finishCustomToggleForAction()
@@ -14313,6 +14419,10 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
                                     finishComposingText()
                                     setComposingText("", 0)
                                     commitText(shiftedText, 1)
+                                    consumeCustomKeyboardOneShotShift()
+                                    return
+                                }
+                                if (applySmallTsuReplacement(shiftedText)) {
                                     consumeCustomKeyboardOneShotShift()
                                     return
                                 }
@@ -15103,6 +15213,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             commitText(text, 1)
             return
         }
+        if (applySmallTsuReplacement(text)) return
         if (applyPendingFlickTextMutation(text, isFlick)) return
         if (text.length == 1) {
             // Only onToggleText cycles custom keys; ordinary taps always append.
@@ -15116,6 +15227,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         text: String, mainView: MainLayoutBinding, isFlick: Boolean
     ) {
         if (dispatchDirectTextIfNeeded(text)) return
+        if (applySmallTsuReplacement(text)) return
         if (applyPendingFlickTextMutation(text, isFlick)) return
         val insertString = inputString.value
         val sb = StringBuilder()
@@ -21363,6 +21475,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             liveConversionEnabled = isLiveConversionEnable == true,
             learningPaused = learningPausedForSession,
             handwritingActive = handwritingModeActive,
+            smallTsuEnabled = smallTsuSettings.enabled,
         ) + dictionaryFloats?.activeShortcuts.orEmpty()
 
         shortcutAdapter?.setActiveShortcutTypes(activeTypes)
@@ -21986,6 +22099,14 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
             ShortcutType.INPUT_BEHAVIOR_TOGGLE -> {
                 toggleRuntimeInputBehaviorFromShortcut()
+            }
+
+            ShortcutType.SMALL_TSU_TOGGLE -> {
+                invalidateSmallTsu()
+                runtimeInputSharedPreferences.edit().putBoolean(SmallTsuPreferences.ENABLED,
+                    !smallTsuSettings.enabled).apply()
+                syncSmallTsuPreferences()
+                Toast.makeText(this, if (smallTsuSettings.enabled) "ダブルタップ促音 ON" else "ダブルタップ促音 OFF", Toast.LENGTH_SHORT).show()
             }
 
             ShortcutType.LIVE_CONVERSION_TOGGLE -> {
@@ -23332,6 +23453,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         position: Int,
         displayedCandidates: List<Candidate>
     ) {
+        invalidateSmallTsu()
         Timber.d("setCandidateClick: $candidate")
         if (candidate.isZenzLiveLoadingSlot(insertString)) {
             Timber.d("Zenz live loading slot click ignored: input=%s", insertString)
@@ -27820,6 +27942,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         charToSend: Char, insertString: String, sb: StringBuilder
     ) {
         if (dispatchDirectTextIfNeeded(charToSend.toString())) return
+        if (applySmallTsuReplacement(charToSend.toString())) return
         if (applyPendingFlickTextMutation(charToSend.toString(), isFlick = false)) return
         when (currentInputType) {
             InputTypeForIME.None,
@@ -27869,6 +27992,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         charToSend: Char, insertString: String, sb: StringBuilder
     ) {
         if (dispatchDirectTextIfNeeded(charToSend.toString())) return
+        if (applySmallTsuReplacement(charToSend.toString())) return
         if (applyPendingFlickTextMutation(charToSend.toString(), isFlick = true)) return
         when (currentInputType) {
             InputTypeForIME.None,
@@ -28913,6 +29037,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun deleteSurroundingText(p0: Int, p1: Int): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         flickInputPreviewCoordinator.cancel(restore = true)
         cancelCandidateTranslationIfPreEditMutates()
@@ -28922,6 +29047,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun deleteSurroundingTextInCodePoints(p0: Int, p1: Int): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         flickInputPreviewCoordinator.cancel(restore = true)
         cancelCandidateTranslationIfPreEditMutates()
@@ -28945,12 +29071,14 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun setComposingRegion(p0: Int, p1: Int): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         flickInputPreviewCoordinator.cancel(restore = true)
         return connection.setComposingRegion(p0, p1)
     }
 
     override fun finishComposingText(): Boolean {
+        invalidateSmallTsu()
         if (!customToggleEditInProgress) resetCustomToggleState()
         val connection = currentInputConnection ?: return false
         flickInputPreviewCoordinator.cancel(restore = true)
@@ -28963,6 +29091,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun commitText(p0: CharSequence?, p1: Int): Boolean {
+        invalidateSmallTsu()
         if (!customToggleEditInProgress) resetCustomToggleState()
         val connection = currentInputConnection ?: return false
         flickInputPreviewCoordinator.cancel(restore = true)
@@ -28979,6 +29108,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun commitCompletion(p0: CompletionInfo?): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         flickInputPreviewCoordinator.cancel(restore = true)
         val committed = connection.commitCompletion(p0)
@@ -28987,6 +29117,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun commitCorrection(p0: CorrectionInfo?): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         flickInputPreviewCoordinator.cancel(restore = true)
         val committed = connection.commitCorrection(p0)
@@ -28995,6 +29126,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun setSelection(p0: Int, p1: Int): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         flickInputPreviewCoordinator.cancel(restore = true)
         val changed = connection.setSelection(p0, p1)
@@ -29003,11 +29135,13 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun performEditorAction(p0: Int): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         return connection.performEditorAction(p0)
     }
 
     override fun performContextMenuAction(p0: Int): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         return connection.performContextMenuAction(p0)
     }
@@ -29023,6 +29157,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun sendKeyEvent(p0: KeyEvent?): Boolean {
+        invalidateSmallTsu()
         val connection = currentInputConnection ?: return false
         return connection.sendKeyEvent(p0)
     }

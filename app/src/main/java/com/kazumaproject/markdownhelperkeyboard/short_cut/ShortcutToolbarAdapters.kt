@@ -241,6 +241,7 @@ fun ShortcutType.summary(context: android.content.Context): String =
         ShortcutType.KEYBOARD_LAYOUT_EDIT -> context.getString(R.string.shortcut_toolbar_summary_keyboard_layout_edit)
         ShortcutType.KEYBOARD_FLOATING_TOGGLE -> context.getString(R.string.shortcut_toolbar_summary_keyboard_floating_toggle)
         ShortcutType.INPUT_BEHAVIOR_TOGGLE -> context.getString(R.string.shortcut_toolbar_summary_input_behavior_toggle)
+        ShortcutType.SMALL_TSU_TOGGLE -> "通常入力を待たせず、2回の操作で促音を入力します"
         ShortcutType.LIVE_CONVERSION_TOGGLE -> context.getString(R.string.shortcut_toolbar_summary_live_conversion_toggle)
         ShortcutType.LEARNING_PAUSE -> context.getString(R.string.shortcut_toolbar_summary_learning_pause)
         ShortcutType.SELECT_ALL -> context.getString(R.string.shortcut_toolbar_summary_select_all)

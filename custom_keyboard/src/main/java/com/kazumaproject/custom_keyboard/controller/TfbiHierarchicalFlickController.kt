@@ -59,6 +59,7 @@ class TfbiHierarchicalFlickController(
     interface TfbiListener {
         fun onPress(character: String)
         fun onFlick(character: String)
+        fun onCommitted(character: String, isFlick: Boolean) { onFlick(character) }
         fun onSelectionChanged(character: String?, isFlick: Boolean) {}
         fun onCanceled() {}
 
@@ -471,7 +472,7 @@ class TfbiHierarchicalFlickController(
         }
 
         if (selectedNode != null) {
-            listener?.onFlick(selectedNode.char)
+            listener?.onCommitted(selectedNode.char, mapStack.size > 1 || finalDirection != TfbiFlickDirection.TAP)
         }
 
         // 1タッチの終了
