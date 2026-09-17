@@ -35,6 +35,7 @@ import org.junit.runner.RunWith
 class SmallTsuImeDeviceTest {
     private val ins = InstrumentationRegistry.getInstrumentation()
     private val automation get() = ins.uiAutomation
+    private val keyWindowIds = mutableMapOf<Rect, Int>()
     private fun shell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
         automation.executeShellCommand(command)).bufferedReader().use { it.readText() }
     private fun nodes(): List<AccessibilityNodeInfo> {
@@ -52,7 +53,12 @@ class SmallTsuImeDeviceTest {
             nodes().firstOrNull { it.packageName?.toString() == ins.targetContext.packageName &&
                 it.isVisibleToUser && it.isClickable &&
                 it.text?.toString()?.lineSequence()?.firstOrNull()?.trim() == label
-            }?.let { return Rect().also(it::getBoundsInScreen) }
+            }?.let { node ->
+                return Rect().also { bounds ->
+                    node.getBoundsInScreen(bounds)
+                    keyWindowIds[Rect(bounds)] = node.windowId
+                }
+            }
             SystemClock.sleep(100)
         }
         error("Missing key $label: " + nodes().joinToString { "${it.text}/${it.contentDescription}" })
@@ -78,12 +84,23 @@ class SmallTsuImeDeviceTest {
             if (view is FlickKeyboardView || view is TenKey) return true
             return view is ViewGroup && (0 until view.childCount).any { containsKeyboard(view.getChildAt(it)) }
         }
-        val roots = WindowInspector.getGlobalWindowViews().filter { root ->
-            val position = IntArray(2); root.getLocationOnScreen(position)
-            containsKeyboard(root) && Rect(position[0], position[1], position[0]+root.width, position[1]+root.height)
-                .contains(rect.centerX(), rect.centerY())
+        // Floating mode can leave both the docked IME and popup roots attached.
+        // Match the accessibility window that supplied the actual visible key,
+        // rather than choosing an arbitrary overlapping keyboard root.
+        val expectedWindow = checkNotNull(keyWindowIds[rect])
+        val windows = WindowInspector.getGlobalWindowViews().map { root ->
+            val node = root.createAccessibilityNodeInfo()
+            val id = node?.windowId ?: -1
+            node?.recycle()
+            root to id
         }
-        check(roots.size == 1) { "Expected one visible real IME window at $rect, found ${roots.size}" }
+        val roots = windows.filter { (root, id) ->
+            id == expectedWindow && root.windowVisibility == View.VISIBLE && containsKeyboard(root)
+        }.map { it.first }
+        check(roots.size == 1) {
+            "Expected visible IME accessibility window $expectedWindow at $rect; roots=" +
+                windows.joinToString { (view, id) -> "$id/${view.windowVisibility}/${view.javaClass.simpleName}" }
+        }
         return roots.single()
     }
 
