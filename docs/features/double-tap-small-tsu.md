@@ -62,4 +62,6 @@ IME内のフローティング辞書編集欄も、安全な入力先追跡の�
 実IMEテストは機能OFFで同操作を測定し、ONでも既存文字と1回目を保持して同じ位置へ
 通常入力することを比較する。カーソル位置の新仕様を促音テストへ紛れ込ませない。
 
-実IMEの時刻試験では `UiAutomation` の各イベント後の描画待ちを挟まず、実時刻のDOWN/UPを順序どおり注入し、組の最後で同期する。UP→DOWN間隔をログとassertで確認する。通常1回入力の直後表示は、時刻条件のある組とは独立して検証する。単体／View試験の199/200/201ms境界は維持する。
+実IMEの時間条件のある組は、公開API `WindowInspector` で起動中のIMEウィンドウを取得し、メインスレッドでルートViewへ実時刻のDOWN/UPを送る。実Service・InputConnection・入力先EditText・候補処理を通し、listenerやモックを直接呼ばない。UP→DOWN間隔と1回目が長押しになっていないことをassertし、時刻をログに残す。OSのInputDispatcher全体を通す操作とは区別する。単独入力・カーソル操作のケースでは `UiAutomation` のOS注入も残す。単体／View試験の199/200/201ms境界は維持する。
+
+Android 15の `UiAutomation` は `sync=false` でもwindow transactionの同期を行うため、短時間操作の再現にその呼出間隔を使わない（[API文書](https://developer.android.com/reference/android/app/UiAutomation#injectInputEvent(android.view.InputEvent,%20boolean))、[プラットフォーム実装](https://github.com/aosp-mirror/platform_frameworks_base/blob/android-15.0.0_r1/core/java/android/app/UiAutomationConnection.java)）。
