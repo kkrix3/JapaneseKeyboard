@@ -1686,8 +1686,9 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             if (isCustomLayoutDirectMode || isCustomLayoutRomajiMode) return null
         } else if (qwertyMode.value !in setOf(TenKeyQWERTYMode.Default, TenKeyQWERTYMode.Sumire) ||
             isFlickOnlyMode != true) return null
-        return SmallTsuSnapshot(connection, flickPreviewEditorSessionId, _inputString.revision,
-            "${qwertyMode.value}:$currentInputModeForSession:$customKeyboardMode:$smallTsuBoundary", inputString.value)
+        val reading = _inputString.snapshot()
+        return SmallTsuSnapshot(connection, flickPreviewEditorSessionId, reading.revision,
+            "${qwertyMode.value}:$currentInputModeForSession:$customKeyboardMode:$smallTsuBoundary", reading.reading)
     }
 
     private val kanaGestureObserver = object : KanaGestureObserver {
