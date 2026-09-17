@@ -6,6 +6,9 @@ import android.graphics.Rect
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.view.InputDevice
+import android.view.View
+import android.view.ViewGroup
+import android.view.inspector.WindowInspector
 import android.view.MotionEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.preference.PreferenceManager
@@ -13,6 +16,8 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kazumaproject.custom_keyboard.layout.KeyboardDefaultLayouts
+import com.kazumaproject.custom_keyboard.view.FlickKeyboardView
+import com.kazumaproject.tenkey.TenKey
 import com.kazumaproject.markdownhelperkeyboard.ime_service.di.AppModule
 import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui.KeyboardEditorViewModel
 import com.kazumaproject.markdownhelperkeyboard.repository.KeyboardRepository
@@ -67,23 +72,55 @@ class SmallTsuImeDeviceTest {
     }
     private data class StrokeTime(val down: Long, val up: Long)
 
-    private fun stroke(rect: Rect, flick: Boolean = false, syncFinish: Boolean = true): StrokeTime {
-        val start = SystemClock.uptimeMillis()
-        var up = start
+    private fun keyboardRootAt(rect: Rect): View {
+        fun containsKeyboard(view: View): Boolean {
+            if (!view.isShown) return false
+            if (view is FlickKeyboardView || view is TenKey) return true
+            return view is ViewGroup && (0 until view.childCount).any { containsKeyboard(view.getChildAt(it)) }
+        }
+        val roots = WindowInspector.getGlobalWindowViews().filter { root ->
+            val position = IntArray(2); root.getLocationOnScreen(position)
+            containsKeyboard(root) && Rect(position[0], position[1], position[0]+root.width, position[1]+root.height)
+                .contains(rect.centerX(), rect.centerY())
+        }
+        check(roots.size == 1) { "Expected one visible real IME window at $rect, found ${roots.size}" }
+        return roots.single()
+    }
+
+    private fun stroke(rect: Rect, flick: Boolean = false, timedPair: Boolean = false): StrokeTime {
+        var start = 0L
+        var up = 0L
+        var root: View? = null
         val actions = if (flick) listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP)
             else listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)
         for (action in actions) {
-            val time = SystemClock.uptimeMillis()
-            val event = MotionEvent.obtain(start, time, action,
-                rect.exactCenterX() - (if (flick && action != MotionEvent.ACTION_DOWN) rect.width().toFloat() else 0f),
-                rect.exactCenterY(), 0)
-            event.source = InputDevice.SOURCE_TOUCHSCREEN
-            // Synchronous injection waits for display frames on this emulator. Waiting
-            // after every event can turn a short tap into a hold or a pair into >500ms.
-            // Queue real-time events in order; synchronize only the final UP of a pair.
-            check(automation.injectInputEvent(event, syncFinish && action == MotionEvent.ACTION_UP))
-            event.recycle()
-            if (action == MotionEvent.ACTION_UP) up = time else SystemClock.sleep(25)
+            fun event(): MotionEvent {
+                val time = SystemClock.uptimeMillis()
+                if (action == MotionEvent.ACTION_DOWN) start = time
+                if (action == MotionEvent.ACTION_UP) up = time
+                return MotionEvent.obtain(start, time, action,
+                    rect.exactCenterX() - (if (flick && action != MotionEvent.ACTION_DOWN) rect.width().toFloat() else 0f),
+                    rect.exactCenterY(), 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+            }
+            if (timedPair) {
+                // UiAutomation synchronizes window transactions even with sync=false.
+                // Public WindowInspector lets timed gestures enter the actual IME window
+                // on its main thread. The real service, editor and InputConnection remain
+                // active; this does not call a listener or a fake input implementation.
+                ins.runOnMainSync {
+                    if (action == MotionEvent.ACTION_DOWN) root = keyboardRootAt(rect)
+                    val target = checkNotNull(root)
+                    val position = IntArray(2); target.getLocationOnScreen(position)
+                    val motion = event()
+                    motion.offsetLocation(-position[0].toFloat(), -position[1].toFloat())
+                    try { check(target.dispatchTouchEvent(motion)) } finally { motion.recycle() }
+                }
+            } else {
+                // Retain OS injection for the independent immediate-input and caret cases.
+                val motion = event()
+                try { check(automation.injectInputEvent(motion, true)) } finally { motion.recycle() }
+            }
+            if (action != MotionEvent.ACTION_UP) SystemClock.sleep(25)
         }
         return StrokeTime(start, up)
     }
@@ -94,12 +131,13 @@ class SmallTsuImeDeviceTest {
     }
 
     private fun tapPair(rect: Rect, flickSecond: Boolean = false, gapMillis: Long = 80) {
-        val first = stroke(rect, syncFinish = false)
+        val first = stroke(rect, timedPair = true)
         SystemClock.sleep(gapMillis)
-        val second = stroke(rect, flick = flickSecond)
+        val second = stroke(rect, flick = flickSecond, timedPair = true)
         val interval = second.down - first.up
         android.util.Log.i("SmallTsuTest", "injected pair gap=${interval}ms firstHold=${first.up-first.down}ms")
         assertTrue("Injected pair must be within the configured 500ms: $interval", interval in 0L..500L)
+        assertTrue("First tap must not become a 300ms hold", first.up-first.down in 0L..299L)
         SystemClock.sleep(35)
     }
 
