@@ -3,8 +3,11 @@
 ## 完了範囲
 
 機能実装、設定、GitHubへの保存、テスト、未署名Full Standard Feature APKの生成と検査。
-署名はユーザーの `feature-signing` Environment 作成報告待ち。保護設定の確認、署名、
-ユーザー実機での3者共存・更新インストールは未完了。**未署名APKはインストールできません。**
+2026-09-17の再開確認: ユーザーから `feature-signing` Environment 作成済みとの報告あり。
+手動入口PR #1は本人がpreviewへマージ済み。本人起動のrun #11もテストと未署名APK検査に成功した。
+signジョブはスキップで、承認待ちではない。署名済みartifactと承認履歴はない。
+Environmentの保護設定・4 Secrets登録・有効化変数の状態は現在の接続で確認できていない。
+署名とユーザー実機での3者共存・更新インストールは未完了。**未署名APKはインストールできません。**
 
 ## 設定と入力
 
@@ -46,12 +49,23 @@
 | 通常mergeした検証ソース | verify/double-tap-small-tsu | 165ba703cab49e637dc2d453cb950b93ad088896 |
 
 開始時点ではfork devとupstream/devに差分なし。同期は実施していない。
-mainは開始時に存在しなかった。既存dev・preview・feature/custom-hapticsへの直接変更、
-force-push、削除、上流PR・コメント、Release公開はしていない。
+mainは開始時に存在せず、再開時も存在しない。dev・feature/custom-haptics・機能・基盤・検証ブランチは前回のSHAを維持。
+ユーザーkkrix3が2026-09-17 13:09:37 UTC（22:09:37 JST）に[PR #1](https://github.com/kkrix3/JapaneseKeyboard/pull/1)をマージし、
+previewは `25a9ce7cf678c06eece74c94f17e0f453e1ef5d5` へ進んだ。
+マージ差分は `.github/workflows/feature-ci.yml` と本書の追加2ファイルだけ。
+workflow blob `44ac1ed78d121c0ddcc73c71c6e9e4ca9915771f` は基盤と同一。
+Feature本体、Gradle、Preview署名設定はこのマージに含まれない。既定ブランチはpreviewのまま。
+Workから既存dev・preview・feature/custom-hapticsへの書込み、force-push、削除、上流PR・コメント、Release公開はしていない。
+今回の状態更新は文書専用ブランチ `docs/feature-signing-status` に保存し、previewへ自動マージしない。
 
 ## 実行結果
 
-[最終CI run #10](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262) の verify・device は成功。sign は準備待ちのためスキップ。
+[再開時のCI run #11](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35226212046) の verify・device は成功。sign はスキップ。
+2026-09-17 13:18:08 UTC（22:18:08 JST）にkkrix3がworkflow_dispatchで起動、再実行者もkkrix3、attempt 1。
+対象は `verify/double-tap-small-tsu` の上記検証SHA。前回run #10と同じソースを、新しいversionCodeで再検証している。
+取得したXMLレポート、実IME logcat、CI実行ログ、APK実体検査レポートを照合した。
+同時期の[Preview CI #10](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35225347168)も成功、Preview署名はスキップ。
+Preview CI内の既存「Full feature」ジョブはcustom-hapticsのDebug検査用で、今回の促音Feature共通枠APKとは別。
 
 | 検証 | 件数 | 結果 |
 | --- | ---: | --- |
@@ -62,7 +76,7 @@ force-push、削除、上流PR・コメント、Release公開はしていない�
 | 配布基盤Python | 4 | 成功 |
 | API 35 / x86_64 実IME instrumented test | 1メソッド・20条件 | 20条件すべて成功、skip 0 |
 
-[単体・回帰・APK検査レポート](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262/artifacts/10493210875) ／ [実IME結果・logcat](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262/artifacts/10492487858)
+[単体・回帰・APK検査レポート](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35226212046/artifacts/10499579525) ／ [実IME結果・logcat](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35226212046/artifacts/10499274443)
 
 実IMEの条件はTenKey／カスタムの通常・フローティング（各プレビューOFF/ONで計8条件）、
 Sumireのdefault・circle・sumire・second-flick・third-flick・center-guide-flick（各OFF/ONで計12条件）。
@@ -70,7 +84,7 @@ Sumireのdefault・circle・sumire・second-flick・third-flick・center-guide-f
 ライブ変換ONで読みを継続し遅い候補で戻らないことを確認した。
 連続操作は起動中の実IMEのroot Viewから実Service・InputConnection・EditTextを通す。
 単独入力等はOS注入も使う。連続操作のテストをOS InputDispatcher全体やユーザー実機の検証とは扱わない。
-80組のイベント注入ログはUP→DOWN 80〜281ms、1回目押下 25〜119ms。
+80組のイベント注入ログはUP→DOWN 80〜269ms、1回目押下 25〜71ms。
 これはテストの入力条件であり、製品の入力遅延ベンチマークではない。
 
 app filters: `*SmallTsu*`, `*FlickInputPreviewCoordinatorTest`, `*FlickTextMutationResolverTest`, `*ShortcutActiveStateResolverTest`, `*KeyboardLayout*Test`, `*KeyboardBackup*Test`, `*CandidateQueryPolicyTest`, `*ConversionLearningSessionTest`, `*ComposingTextArbiterTest`。
@@ -87,7 +101,7 @@ bash ./gradlew :app:connectedFullStandardDebugAndroidTest -PfeatureDeviceTest=tr
   -Pandroid.testInstrumentationRunnerArguments.class=com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest \
   --no-daemon --console=plain --max-workers=2
 bash ./gradlew :app:assembleFullStandardFeature \
-  -PfeatureVersionCode=1000000010 -PfeatureBuildTag=double-tap-small-tsu-165ba703cab4 \
+  -PfeatureVersionCode=1000000011 -PfeatureBuildTag=double-tap-small-tsu-165ba703cab4 \
   --no-daemon --console=plain --max-workers=2
 ```
 
@@ -114,14 +128,14 @@ UP→DOWN間隔と1回目の押下時間をログとassertで確認し、単独�
 イベントはテストスレッドで実時刻を採取してメインスレッドへ順にpostし、最後のUPだけ処理完了を待つ。
 Viewの探索や各イベントの処理待ちを、テストの押下時間へ混ぜない。
 run #9は通常表示4条件の成功後、フローティングで複数rootの選別に停止した。
-このfixtureをwindow ID照合へ修正し、最終run #10で20条件すべてが成功した。
+このfixtureをwindow ID照合へ修正し、run #10で20条件すべてが成功し、同じソースのrun #11でも成功した。
 
 基点は未確定範囲がある選択通知を早期returnするため、外部カーソル移動後も次の文字が
 従来の未確定末尾へ入る場合がある。今回の促音予約は破棄し、カーソル処理そのものは変更しない。
 
 ## 未署名APK
 
-[検査済み未署名Full Feature APK（ZIP artifact）](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35210714262/artifacts/10493025958)
+[検査済み未署名Full Feature APK（ZIP artifact）](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35226212046/artifacts/10500290087)
 
 | 項目 | 実体検査結果 |
 | --- | --- |
@@ -129,11 +143,11 @@ run #9は通常表示4条件の成功後、フローティングで複数rootの
 | applicationId | `com.kazumaproject.markdownhelperkeyboard.feature` |
 | 表示名 | Sumire Feature |
 | versionName | `1.7.115-feature-double-tap-small-tsu-165ba703cab4` |
-| versionCode | `1000000010` |
+| versionCode | `1000000011` |
 | variant | Full Standard Feature |
 | debuggable | false |
 | 署名 | なし（未署名） |
-| APK SHA-256 | `054db5a84a7c4b8e4d1d760ff3f3dce2554222b18ecaad66dc82d0d499db63ea` |
+| APK SHA-256 | `d99f605ab11459dc83e931de5d87f1e8a169c64248c3f88545ab6b4370d0c5ac` |
 | 署名証明書SHA-256 | なし（未署名のため） |
 | 整列 | zipalign 16KB検査成功 |
 | ソース | 上表の機能・基盤・検証SHAと一致 |
@@ -151,18 +165,38 @@ Gemma runtime、辞書資産、非debuggable、16KB整列、未署名である�
 
 ## 署名の再開手順
 
-1. ユーザー本人のPCでFeature専用の固定鍵を作成・保管・バックアップする。Preview鍵は流用しない。
-2. `feature-signing` Environmentに専用の4 Secretsを登録する。秘密値をチャットに貼らない。
-3. Required reviewers、自己承認可能な構成、対象verifyブランチの制限を本人が確認する。
-   Environment画面のアクセスは拒否され、こちらから保護機能の利用可能性は確認できていない。
-4. [手動入口のDraft PR #1](https://github.com/kkrix3/JapaneseKeyboard/pull/1)をレビューして本人が反映する。
-   手動入口は既定ブランチへの配置待ち。pushによる未署名CIは実行済み。自動マージしない。
-5. `FEATURE_SIGNING_ENABLED=true`（Repository Actions variable）を設定し、所有者として
-   Sumire Full Feature CI → Run workflow → 検証ブランチ → sign ONで新規実行する。
-6. テスト、各SHA、versionCode、APKハッシュを確認して本人がEnvironmentを承認する。
-7. 署名済みartifactのAPKを取得し、公開証明書SHA-256とAPKファイルSHA-256を別々に確認する。
+run #11のsignは実行条件を満たさずスキップされており、鍵を読み出すステップは一度も実行されていない。
+Environment名を作成しただけでは署名開始にならない。公開run APIから実行時のsign入力とRepository変数の値は確認できず、
+「signがOFFだった」「変数が未設定だった」のどちらかを断定しない。
+ジョブ全体がスキップされたため、Secretの誤りによる署名処理失敗ではないが、Secretが正しく登録済みとも判断できない。
+
+1. Environment作成とPR #1のマージは完了済み。作り直し・マージのやり直しは不要。
+2. 本人のPCで保管・バックアップしたFeature専用固定鍵を使用していることを確認する。
+   Environment `feature-signing` に `FEATURE_KEYSTORE_BASE64`、`FEATURE_KEYSTORE_PASSWORD`、
+   `FEATURE_KEY_ALIAS`、`FEATURE_KEY_PASSWORD` の4 Secretsを登録する。既に登録済みなら再登録不要。
+   秘密値はチャットへ貼らない。
+3. Environment画面でRequired reviewersに `kkrix3`、Prevent self-reviewがOFF、
+   Deployment branchesがSelected branchesで `verify/*` を許可していることを本人が確認する。
+   前回のブラウザー確認はアクセス承認が拒否された。今回はその操作を再試行していない。
+   現在のGitHub接続はEnvironment保護設定を読めないため、利用可能性は本人の確認が必要。
+   必要な保護機能が使えない場合は有効化せず、その状況を連絡する。
+4. 保護・鍵の準備が揃ったら、Settings → Secrets and variables → Actions → Variables の
+   **Repository variables** に `FEATURE_SIGNING_ENABLED` があり、値が小文字の `true` であることを確認する。
+   この有効化値はSecretではなくRepository variable。Environment内だけに置く設定ではない。
+5. 所有者本人が[Sumire Full Feature CI](https://github.com/kkrix3/JapaneseKeyboard/actions/workflows/feature-ci.yml) →
+   Run workflowでブランチ `verify/double-tap-small-tsu` を選び、
+   「確認済みのコミットを専用Feature鍵で署名する（Environment承認が必要）」をONにして**新規実行**する。
+   前回のsign入力がOFFなら再実行ボタンでその入力は変更できない。新規runで番号を増やして作る。
+   今回Workから署名起動・承認は代行していない。添付実装指示の「所有者が明示的に起動しEnvironment承認する」経路を維持する。
+6. verifyとdevice成功後、検証SHA `165ba703cab49e637dc2d453cb950b93ad088896`、
+   機能・基盤SHA、versionCode、APKハッシュを確認し、本人がReview deploymentsで `feature-signing` を承認する。
+   承認前のrun URLを共有すればWork側でもテスト結果と出所を確認できる。秘密値や鍵ファイルは不要。
+7. `sumire-feature-full-signed` artifactが生成された後、APKと署名検査を確認する。
+   `certificate-verification.txt` が公開証明書SHA-256、`apk-sha256.txt` が署名後APKのSHA-256。
+   `unsigned-provenance.json` は署名前の情報。署名後APKのハッシュとは区別する。
 
 詳細は[署名手順](https://github.com/kkrix3/JapaneseKeyboard/blob/build/feature-apk-infrastructure/docs/feature/SIGNING-ja.md)。
+同文書末尾の「Environment未作成」は前回の記録であり、今回の作成報告で更新された。本書の再開記録を最新状態とする。
 Workによる長期鍵の生成、秘密値の受け取り、Environment承認代行は行っていない。
 
 ## ユーザー実機チェックリスト（署名済み版を取得後）
