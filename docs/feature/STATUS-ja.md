@@ -42,9 +42,9 @@
 | 役割 | ブランチ | SHA |
 | --- | --- | --- |
 | 作業開始時のdev | dev | a47715a453cee3ecb40e9757ffbd7d4790ce7ae9 |
-| 機能 | feature/double-tap-small-tsu | 79440060d1e357a93349ec0325e2943e6cda22f1 |
+| 機能 | feature/double-tap-small-tsu | aee9d735c9fef5dd31b283c588664e420d9aa0c9 |
 | 共通配布基盤 | build/feature-apk-infrastructure | e2adc19425c7842dc0ecbd43c20537463c1130c4 |
-| 通常mergeした検証ソース | verify/double-tap-small-tsu | b280374066ef34288b7c4ec185650de634875484 |
+| 通常mergeした検証ソース | verify/double-tap-small-tsu | cbcb50ded52dd7f82b21400df5c2ea9f49afb238 |
 
 開始時点ではfork devとupstream/devに差分なし。同期は実施していない。
 mainは開始時に存在しなかった。既存dev・preview・feature/custom-hapticsへの直接変更、
@@ -54,8 +54,10 @@ force-push、削除、上流PR・コメント、Release公開はしていない�
 
 中間run #4でJVM 404件（core 62、custom_keyboard 239、app 103）とPython 4件が成功。
 run #6の実IME 20条件は8条件成功・12条件失敗。イベントごとの描画同期でUP→DOWNが500msを超える例を確認した。
-実時刻イベントを連続注入し、間隔をassertする修正版を保存。
-[最終再検証run #8](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35207267824) は実行待ち。
+連続操作は公開WindowInspectorで取得した実IMEのルートViewへ実時刻イベントを送り、間隔と押下時間をassertする修正版を保存。
+実Service・InputConnection・入力先EditText・候補処理を通す。単独入力・カーソルケースではOS注入も残す。
+連続操作の検証をOS InputDispatcher全体を通す操作とは区別する。
+[最終再検証run #9](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35208466578) は実行待ち。
 これらの実IME条件が全件成功したとは報告していない。
 
 実行コマンド:
@@ -86,7 +88,7 @@ bash ./gradlew :app:assembleFullStandardFeature \
 通常入力の直後の表示検証は維持し、アプリの通常入力へ待機処理を追加していない。
 20通りを通した追加実IME試験では、UiAutomationの各イベント後の描画同期によって
 UP→DOWNが500msを超える場合があった。
-実時刻のイベントを順に注入し、組の最後だけ同期する方式に変更した。
+Android 15ではUiAutomationのsync=falseでも描画同期が残るため、連続操作を実IMEのルートViewへ送る方式に変更した。
 注入したUP→DOWN間隔をログとassertで確認し、単独入力の即時表示試験も残す。
 
 基点は未確定範囲がある選択通知を早期returnするため、外部カーソル移動後も次の文字が
