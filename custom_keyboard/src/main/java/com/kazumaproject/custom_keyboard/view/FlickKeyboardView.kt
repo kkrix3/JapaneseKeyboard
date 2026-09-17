@@ -2392,6 +2392,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                                 second: TfbiFlickDirection,
                                 isLongPress: Boolean
                             ) {
+                                if (isLongPress) kanaGestureObserver?.cancel()
                                 val longPressText = if (isLongPress) {
                                     twoStepLongPressMap?.get(first)?.get(second)
                                 } else {
@@ -3174,6 +3175,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                     displayY = event.displayY(pointerIndex)
                 )
 
+                if (targetView == null) kanaGestureObserver?.cancel()
                 targetView?.let { target ->
                     motionTargets[pointerId] = target
                     dispatchPointerEvent(
@@ -3382,6 +3384,7 @@ class FlickKeyboardView @JvmOverloads constructor(
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
         if (changedView == this && visibility != View.VISIBLE) {
+            kanaGestureObserver?.cancel()
             doubleTapActionDispatcher.cancel()
             cancelTextPreview()
             cancelTrackedTouchState()

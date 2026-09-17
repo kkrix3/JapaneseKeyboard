@@ -22057,6 +22057,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     private fun handleShortcutAction(type: ShortcutType, mainView: MainLayoutBinding) {
+        invalidateSmallTsu()
         clearZeroQueryAllState(refresh = false)
         when (type) {
             ShortcutType.SETTINGS -> {
