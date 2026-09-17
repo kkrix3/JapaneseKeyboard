@@ -40,6 +40,7 @@ import com.kazumaproject.core.domain.key.Key
 import com.kazumaproject.core.domain.key.KeyInfo
 import com.kazumaproject.core.domain.key.KeyMap
 import com.kazumaproject.core.domain.key.KeyRect
+import com.kazumaproject.core.domain.small_tsu.KanaGestureObserver
 import com.kazumaproject.core.domain.listener.FlickListener
 import com.kazumaproject.core.domain.listener.KeyTouchCancelListener
 import com.kazumaproject.core.domain.listener.KeyTouchCancelReason
@@ -138,6 +139,11 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
     private lateinit var pressedKey: PressedKey
 
     // External listeners
+    var kanaGestureObserver: KanaGestureObserver? = null
+    private var kanaEventTime = 0L
+    private var kanaSinglePointer = false
+    private val kanaKeys = setOf(Key.KeyA, Key.KeyKA, Key.KeySA, Key.KeyTA, Key.KeyNA,
+        Key.KeyHA, Key.KeyMA, Key.KeyYA, Key.KeyRA, Key.KeyWA)
     private var flickListener: FlickListener? = null
     private var longPressListener: LongPressListener? = null
     private var keyTouchCancelListener: KeyTouchCancelListener? = null
@@ -1358,6 +1364,7 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
     }
 
     fun setCurrentMode(inputMode: InputMode) {
+        if (currentInputMode.value != inputMode) kanaGestureObserver?.cancel()
         Log.d("setCurrentMode", "$inputMode")
         _currentInputMode.update { inputMode }
     }
@@ -1475,12 +1482,21 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
             if (view.visibility != View.VISIBLE) {
                 return false
             }
+            kanaEventTime = event.eventTime
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> kanaSinglePointer = true
+                MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_POINTER_UP,
+                MotionEvent.ACTION_CANCEL -> { kanaSinglePointer = false; kanaGestureObserver?.cancel() }
+            }
             when (event.action and MotionEvent.ACTION_MASK) {
                 MotionEvent.ACTION_DOWN -> {
                     if (keyboardSkinId != KeyboardSkinId.DEFAULT) hideAllPopWindow()
                     skinGuide?.dismiss()
                     skinLongPress.clear()
                     val key = pressedKeyByMotionEvent(event, 0)
+                    if (!isCursorMode && key in kanaKeys && currentInputMode.value == InputMode.ModeJapanese) {
+                        kanaGestureObserver?.down("${System.identityHashCode(this)}:${currentInputMode.value}:$key", event.eventTime)
+                    } else kanaGestureObserver?.cancel()
                     flickListener?.onFlick(GestureType.Down, key, null)
 
                     val (initialX, initialY) = getRawCoordinates(event, event.actionIndex)
@@ -1499,6 +1515,7 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
                     longPressJob = scope.launch {
                         delay(longPressTimeout)
                         if (pressedKey.key != Key.NotSelected) {
+                            kanaGestureObserver?.cancel()
                             longPressListener?.onLongPress(pressedKey.key)
                             isLongPressed = true
                             onLongPressed()
@@ -1665,7 +1682,8 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
                         longPressJob = scope.launch {
                             delay(longPressTimeout)
                             if (pressedKey.key != Key.NotSelected) {
-                                longPressListener?.onLongPress(pressedKey.key)
+                                kanaGestureObserver?.cancel()
+                            longPressListener?.onLongPress(pressedKey.key)
                                 isLongPressed = true
                                 onLongPressed()
                             }
@@ -1711,6 +1729,8 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
     }
 
     private fun cancelActiveTouch(reason: KeyTouchCancelReason) {
+        kanaGestureObserver?.cancel()
+        kanaSinglePointer = false
         skinGuide?.dismiss()
         skinLongPress.clear()
         flickTextPreviewEmitter.cancel()
@@ -2107,6 +2127,7 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
             isGojuon = false
         )
         val selection = resolveTextSelection(keyInfo, gestureType)
+        val deliver = {
         flickTextPreviewEmitter.commit(selection) {
             when (keyInfo) {
                 KeyInfo.Null -> {
@@ -2133,6 +2154,13 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
                 }
             }
         }
+        }
+        val observer = kanaGestureObserver
+        val text = selection.text
+        if (observer != null && text != null && kanaSinglePointer && key in kanaKeys &&
+            currentInputMode.value == InputMode.ModeJapanese && !isLongPressed) {
+            observer.text(text, gestureType == GestureType.Tap, kanaEventTime, deliver)
+        } else { observer?.cancel(); deliver() }
     }
 
     private fun resolveFlickThresholdPx(sensitivity: Int): Float {

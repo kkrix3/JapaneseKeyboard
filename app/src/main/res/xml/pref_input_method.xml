@@ -65,4 +65,23 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory android:title="ダブルタップ促音">
+        <SwitchPreferenceCompat android:key="double_tap_small_tsu_enabled"
+            android:defaultValue="false" android:title="ダブルタップで促音を入力"
+            android:summary="1回目は直ちに入力し、2回目で「っ＋出力」に置換します。連打は2回ずつで1組です。トグル入力では無効です。" />
+        <SeekBarPreference android:key="double_tap_small_tsu_interval"
+            android:defaultValue="200" app:min="50" android:max="500"
+            app:seekBarIncrement="1" app:showSeekBarValue="true"
+            android:title="判定時間（ミリ秒）"
+            android:summary="1回目を離してから2回目に触れるまで。50〜500ms。2回目のフリックを終えるまでの時間ではありません。" />
+        <MultiSelectListPreference android:key="double_tap_small_tsu_rows"
+            android:entries="@array/small_tsu_rows" android:entryValues="@array/small_tsu_rows"
+            android:defaultValue="@array/small_tsu_default_rows"
+            android:title="促音化する文字の行"
+            android:summary="2回目に入力する文字列の先頭で判定します。先頭がカタカナなら「ッ」を付けます。" />
+        <Preference android:title="連打とショートカット"
+            android:summary="「か」の連打は、か → っか → っかか → っかっか。「かっか」は最初の「か」の後で判定時間を超えて区切ります。ショートカットバー設定で「ダブルタップ促音」を追加するとON/OFFを切り替えられます。既存のダブルタップ割当てを優先します。"
+            android:selectable="false" />
+    </PreferenceCategory>
+
 </PreferenceScreen>

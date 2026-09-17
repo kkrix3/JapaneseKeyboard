@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="small_tsu_rows">
+        <item>あ</item>
+        <item>か</item>
+        <item>が</item>
+        <item>さ</item>
+        <item>ざ</item>
+        <item>た</item>
+        <item>だ</item>
+        <item>な</item>
+        <item>は</item>
+        <item>ば</item>
+        <item>ぱ</item>
+        <item>ま</item>
+        <item>や</item>
+        <item>ら</item>
+        <item>わ</item>
+    </string-array>
+    <string-array name="small_tsu_default_rows">
+        <item>か</item>
+        <item>が</item>
+        <item>さ</item>
+        <item>ざ</item>
+        <item>た</item>
+        <item>だ</item>
+        <item>は</item>
+        <item>ば</item>
+        <item>ぱ</item>
+    </string-array>
+</resources>
