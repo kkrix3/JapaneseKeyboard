@@ -65,38 +65,44 @@ class SmallTsuImeDeviceTest {
         }
         error("Custom keyboard geometry did not settle")
     }
+    private data class StrokeTime(val down: Long, val up: Long)
+
+    private fun stroke(rect: Rect, flick: Boolean = false, syncFinish: Boolean = true): StrokeTime {
+        val start = SystemClock.uptimeMillis()
+        var up = start
+        val actions = if (flick) listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP)
+            else listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)
+        for (action in actions) {
+            val time = SystemClock.uptimeMillis()
+            val event = MotionEvent.obtain(start, time, action,
+                rect.exactCenterX() - (if (flick && action != MotionEvent.ACTION_DOWN) rect.width().toFloat() else 0f),
+                rect.exactCenterY(), 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            // Synchronous injection waits for display frames on this emulator. Waiting
+            // after every event can turn a short tap into a hold or a pair into >500ms.
+            // Queue real-time events in order; synchronize only the final UP of a pair.
+            check(automation.injectInputEvent(event, syncFinish && action == MotionEvent.ACTION_UP))
+            event.recycle()
+            if (action == MotionEvent.ACTION_UP) up = time else SystemClock.sleep(25)
+        }
+        return StrokeTime(start, up)
+    }
+
     private fun tap(rect: Rect) {
-        val start = SystemClock.uptimeMillis()
-        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
-            val event = MotionEvent.obtain(start, SystemClock.uptimeMillis(), action,
-                rect.exactCenterX(), rect.exactCenterY(), 0)
-            event.source = InputDevice.SOURCE_TOUCHSCREEN
-            check(automation.injectInputEvent(event, true))
-            event.recycle()
-            if (action == MotionEvent.ACTION_DOWN) SystemClock.sleep(25)
-        }
+        stroke(rect)
         SystemClock.sleep(35)
     }
-    private fun cell(column: Int, row: Int): Rect {
-        val a = key("あ")
-        val ka = key("か")
-        val ta = key("た")
-        return Rect(a).apply {
-            offset((column - 1) * (ka.centerX() - a.centerX()), row * (ta.centerY() - a.centerY()))
-        }
-    }
-    private fun flickLeft(rect: Rect) {
-        val start = SystemClock.uptimeMillis()
-        for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP)) {
-            val event = MotionEvent.obtain(start, SystemClock.uptimeMillis(), action,
-                rect.exactCenterX() - (if (action == MotionEvent.ACTION_DOWN) 0f else rect.width().toFloat()), rect.exactCenterY(), 0)
-            event.source = InputDevice.SOURCE_TOUCHSCREEN
-            check(automation.injectInputEvent(event, true))
-            event.recycle()
-            SystemClock.sleep(30)
-        }
+
+    private fun tapPair(rect: Rect, flickSecond: Boolean = false, gapMillis: Long = 80) {
+        val first = stroke(rect, syncFinish = false)
+        SystemClock.sleep(gapMillis)
+        val second = stroke(rect, flick = flickSecond)
+        val interval = second.down - first.up
+        android.util.Log.i("SmallTsuTest", "injected pair gap=${interval}ms firstHold=${first.up-first.down}ms")
+        assertTrue("Injected pair must be within the configured 500ms: $interval", interval in 0L..500L)
         SystemClock.sleep(35)
     }
+
     private fun text(scenario: ActivityScenario<FastInputHostActivity>): String {
         var result = ""
         scenario.onActivity { result = it.editText.text.toString() }
@@ -165,10 +171,13 @@ class SmallTsuImeDeviceTest {
                     awaitStableKeyboard()
                     val ka=key("か");val ta=key("た");val a=key("あ")
                     tap(ka);assertEquals("first immediate $surface preview=$preview","か",text(scenario))
-                    tap(ka);assertEquals("pair $surface preview=$preview","っか",text(scenario))
-                    tap(ka);tap(ka);assertEquals("four $surface preview=$preview","っかっか",text(scenario))
-                    tap(a);tap(ta);flickLeft(ta)
-                    assertEquals("flick $surface preview=$preview","っかっかあっち",text(scenario))
+                    // Keep the immediate first-input assertion independent of the timed
+                    // pair: ActivityScenario/UiAutomation round trips can exceed 500ms.
+                    SystemClock.sleep(550)
+                    tapPair(ka);assertEquals("pair after a pause $surface preview=$preview","かっか",text(scenario))
+                    tapPair(ka);assertEquals("two nonoverlapping pairs $surface preview=$preview","かっかっか",text(scenario))
+                    tap(a);tapPair(ta,flickSecond=true)
+                    assertEquals("flick $surface preview=$preview","かっかっかあっち",text(scenario))
                     // Force an external caret movement: the pending first input may not be replaced.
                     SystemClock.sleep(550);tap(ka)
                     val beforeMove=text(scenario)
@@ -185,7 +194,7 @@ class SmallTsuImeDeviceTest {
                 ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
                     awaitStableKeyboard()
                     val ka=key("か")
-                    tap(ka);SystemClock.sleep(200);tap(ka)
+                    tapPair(ka,gapMillis=200)
                     SystemClock.sleep(600)
                     tap(key("あ"))
                     awaitLiveText(scenario,"っかあ","live reading $surface/$style floating=$floating preview=$preview")
