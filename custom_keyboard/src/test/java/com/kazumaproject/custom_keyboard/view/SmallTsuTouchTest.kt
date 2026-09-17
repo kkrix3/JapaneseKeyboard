@@ -23,6 +23,7 @@ class SmallTsuTouchTest {
         var revision = 0L
         var replacement: String? = null
         var releases = 0
+        val legacyFlickFlags = mutableListOf<Boolean>()
         val owner = Any()
         val session = SmallTsuSession()
         val settings = SmallTsuSettings(enabled=true)
@@ -50,6 +51,7 @@ class SmallTsuTouchTest {
                 override fun onPress(action:KeyAction){}
                 override fun onAction(action:KeyAction,isFlick:Boolean) {
                     releases++
+                    legacyFlickFlags.add(isFlick)
                     if(action is KeyAction.Text){reading=replacement ?: reading+action.text;revision++}
                 }
                 override fun onActionLongPress(action:KeyAction){session.cancel()}
@@ -120,6 +122,13 @@ class SmallTsuTouchTest {
         h.at(MotionEvent.ACTION_MOVE,200,220,.1f,1f)
         h.at(MotionEvent.ACTION_UP,200,900,.1f,1f)
         assertEquals("ばっじ",h.reading)
+    }
+    @Test fun circleAndHierarchyKeepTheirExistingImeCallbackSemantics(){
+        for(style in listOf("circle","third-flick")) {
+            val h=Harness(layout=singleSa(style));h.tap(100);h.tap(200)
+            assertEquals(style,"っさ",h.reading)
+            assertEquals(style,listOf(true,true),h.legacyFlickFlags)
+        }
     }
     @Test fun hierarchicalStageUsesFinalMultiCharacterOutput(){
         val h=Harness(layout=singleSa("third-flick"));h.tap(100)

@@ -1554,6 +1554,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         applyPopupViewStyle(popupViewStyleSet.directional)
 
                         this.listener = object : CustomAngleFlickController.FlickListener {
+                            override fun onHold() { kanaGestureObserver?.cancel() }
                             override fun onPress(action: FlickAction?) {
                                 when (action) {
                                     is FlickAction.Input -> notifyTextPress(keyData, action.char)
@@ -1922,11 +1923,14 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     notifyTextPress(keyData, character)
                                 }
 
-                                override fun onFlick(character: String) {
+                                override fun onFlick(character: String) = onCommitted(character, true)
+
+                                override fun onCommitted(character: String, isFlick: Boolean) {
                                     dispatchCommittedKeyAction(
                                         keyData,
                                         KeyAction.Text(character),
-                                        isFlick = true
+                                        isFlick = true,
+                                        kanaTap = !isFlick
                                     )
                                 }
 
@@ -2610,7 +2614,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     dispatchCommittedKeyAction(
                                         keyData,
                                         KeyAction.Text(character),
-                                        isFlick = isFlick
+                                        isFlick = true,
+                                        kanaTap = !isFlick
                                     )
                                 }
                             }
@@ -2698,6 +2703,9 @@ class FlickKeyboardView @JvmOverloads constructor(
         action: KeyAction,
         isFlick: Boolean,
         isLongPress: Boolean = false,
+        // Some legacy controllers always report a flick to the IME. Preserve that
+        // behavior while observing the actual tap independently for small-tsu.
+        kanaTap: Boolean = !isFlick,
     ) {
         val dispatch = dispatch@{
             val toggleValues = if (
@@ -2748,13 +2756,13 @@ class FlickKeyboardView @JvmOverloads constructor(
         }
         }
         val observer = kanaGestureObserver
-        val heldTap = !isFlick && kanaEventTime - kanaDownTime >= kanaHoldTimeout
+        val heldTap = kanaTap && kanaEventTime - kanaDownTime >= kanaHoldTimeout
         val eligible = kanaSinglePointer && !isLongPress && !heldTap && !keyData.isSpecialKey &&
             keyData.textInputBehavior != KeyTextInputBehavior.TOGGLE &&
             keyData.doubleTapBinding == null && keyData.effectiveDoubleTapBinding(action) == null &&
             currentLayout?.isRomaji != true && currentLayout?.isDirectMode != true
         if (observer != null && textAction != null && eligible) {
-            observer.text(textAction.text, !isFlick, kanaEventTime, deliver)
+            observer.text(textAction.text, kanaTap, kanaEventTime, deliver)
         } else {
             observer?.cancel()
             deliver()
