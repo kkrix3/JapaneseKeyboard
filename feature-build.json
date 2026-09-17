@@ -1,0 +1,15 @@
+{
+  "baseSha": "a47715a453cee3ecb40e9757ffbd7d4790ce7ae9",
+  "featureRef": "feature/double-tap-small-tsu",
+  "featureSha": "a3f23f8a50af9404d1c9cf3167c4474a29dbcc39",
+  "infrastructureRef": "build/feature-apk-infrastructure",
+  "infrastructureSha": "62cb6317f8b061f12c838bbefb899373a9732777",
+  "appTestFilters": [
+    "*SmallTsu*",
+    "*FlickInputPreviewCoordinatorTest",
+    "*FlickTextMutationResolverTest",
+    "*ShortcutActiveStateResolverTest",
+    "*KeyboardLayout*Test",
+    "*KeyboardBackup*Test"
+  ]
+}
