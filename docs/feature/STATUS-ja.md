@@ -6,7 +6,11 @@
 [run #13](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35236398155) はverify・device・signがすべて成功。
 所有者kkrix3による `feature-signing` Environmentの承認履歴を確認した。
 署名完了は2026-09-17 22:08 UTC（2026-09-18 07:08 JST）。
-署名済みFull Feature APKを実機検証用に配布できる状態。ユーザー実機での3者共存・動作・A→B更新は未実施。
+署名済みFull Feature APKを実機検証用に配布できる状態。
+2026-09-18の[利用者実機報告と開発側評価](manual-check-2026-09-18.md)を受領した。
+原本はOK 41・NG 1・保留2・対象外1・未実施19、基本12項目は全件OK、3者共存は利用者判定OK。
+唯一のNG C05はHTML期待値と仕様の不一致。端末・使用APK版が未記録のためrun #13との同一性は未確認。
+A→B更新は未実施。項目ごとの確認範囲や入力欄切替の観察はリンク先を参照。
 
 有効化変数をEnvironment variablesに入れていたことが、前回署名スキップの原因だったと本人から報告あり。
 Repository variablesへ移して新規run #13を実行し、Environment本人承認を経て署名成功。
@@ -96,7 +100,7 @@ Sumireのdefault・circle・sumire・second-flick・third-flick・center-guide-f
 
 app filters: `*SmallTsu*`, `*FlickInputPreviewCoordinatorTest`, `*FlickTextMutationResolverTest`, `*ShortcutActiveStateResolverTest`, `*KeyboardLayout*Test`, `*KeyboardBackup*Test`, `*CandidateQueryPolicyTest`, `*ConversionLearningSessionTest`, `*ComposingTextArbiterTest`。
 core/custom_keyboardは全件、appは明示した回帰対象。appの全テストを実行したという意味ではない。
-ユーザー実機での操作、署名済みAPKの3者共存・A→B更新は未実施。
+この表はCIの結果。ユーザー実機の報告は上記の別記録に分け、CIの20条件と合算しない。A→B更新は未実施。
 
 実行コマンド:
 
@@ -181,7 +185,7 @@ arm64-v8a / x86_64のZenz・LiteRT/Gemma・OpenMP native、Zenzモデル、辞�
 `dcbf5b630a85788cb56960b51edf120440ace81d564652ecb7435add2d31f48f`。
 署名ジョブログで照合し、今回のFeature証明書とは異なることを確認した。
 APK実体の異なるID・authorityと別証明書は確認済み。3アプリ同時インストール、
-実機の各設定画面への遷移、固定証明書によるA→B更新と設定保持はユーザー実機の確認事項。
+実機の各設定画面への遷移、固定証明書によるA→B更新と設定保持はユーザー実機の確認事項。3者共存は上記利用者報告にOKの記録あり。
 
 ## 署名運用と今回の確認
 
