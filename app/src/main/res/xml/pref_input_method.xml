@@ -73,12 +73,18 @@
             android:defaultValue="200" app:min="50" android:max="500"
             app:seekBarIncrement="1" app:showSeekBarValue="true"
             android:title="判定時間（ミリ秒）"
-            android:summary="1回目を離してから2回目に触れるまで。50〜500ms。2回目のフリックを終えるまでの時間ではありません。" />
+            android:summary="1回目を離してから2回目に触れるまで。初期200ms、50〜500ms。短くすると意図しない促音が減る一方、促音を出すには素早い操作が必要になります。2回目のフリックを終えるまでの時間ではありません。" />
         <MultiSelectListPreference android:key="double_tap_small_tsu_rows"
             android:entries="@array/small_tsu_rows" android:entryValues="@array/small_tsu_rows"
             android:defaultValue="@array/small_tsu_default_rows"
             android:title="促音化する文字の行"
-            android:summary="2回目に入力する文字列の先頭で判定します。先頭がカタカナなら「ッ」を付けます。" />
+            android:summary="2回目に実際に入力する文字列の先頭で行を判定します。キーの表示や1回目の文字では判定しません。先頭がカタカナなら「ッ」を付けます。" />
+        <Preference android:title="対象になる出力"
+            android:summary="対象行のかなで始まる2回目の出力が対象です。「っ・ッ・ん・ン」始まりや、漢字・英数字・空白・一般の記号を含む出力などは対象外です。1回目のタップが「っか」、2回目が「き」なら、1回目の未確定入力全体を置き換え「っき」になります。"
+            android:selectable="false" />
+        <Preference android:title="意図しない促音が入るとき"
+            android:summary="同じキーを時間内に操作すると、普通に「かく」と入力したつもりでも「っく」になります。判定時間を短くするか、2回の間をその時間より長く空けてください。必要に応じて対象行や全体のON/OFFも調整できます。"
+            android:selectable="false" />
         <Preference android:title="連打とショートカット"
             android:summary="「か」の連打は、か → っか → っかか → っかっか。「かっか」は最初の「か」の後で判定時間を超えて区切ります。ショートカットバー設定で「ダブルタップ促音」を追加するとON/OFFを切り替えられます。既存のダブルタップ割当てを優先します。"
             android:selectable="false" />
