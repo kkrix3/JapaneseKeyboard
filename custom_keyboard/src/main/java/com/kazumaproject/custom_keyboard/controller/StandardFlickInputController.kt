@@ -41,6 +41,7 @@ class StandardFlickInputController(
     interface StandardFlickListener {
         fun onPress(character: String)
         fun onFlick(character: String)
+        fun onCommitted(character: String, isFlick: Boolean) { onFlick(character) }
         fun onSelectionChanged(character: String?, isFlick: Boolean) {}
         fun onCanceled() {}
     }
@@ -160,7 +161,7 @@ class StandardFlickInputController(
                 val finalDirection = calculateDirection(dx, dy)
                 characterMap[finalDirection]?.let {
                     if (it.isNotEmpty()) {
-                        listener?.onFlick(it)
+                        listener?.onCommitted(it, finalDirection != FlickDirection.TAP)
                     }
                 }
                 dismissPopup()

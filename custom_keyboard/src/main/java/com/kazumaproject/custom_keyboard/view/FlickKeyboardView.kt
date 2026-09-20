@@ -94,6 +94,7 @@ import com.kazumaproject.custom_keyboard.layout.SegmentedBackgroundDrawable
 import com.kazumaproject.core.domain.flick.FlickTextPreviewEmitter
 import com.kazumaproject.core.domain.flick.FlickTextPreviewListener
 import com.kazumaproject.core.domain.flick.FlickTextSelection
+import com.kazumaproject.core.domain.small_tsu.KanaGestureObserver
 import java.util.IdentityHashMap
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -126,6 +127,13 @@ class FlickKeyboardView @JvmOverloads constructor(
         private const val DOUBLE_TAP_MIN_INTERVAL_MILLIS = 40L
     }
 
+    var kanaGestureObserver: KanaGestureObserver? = null
+    private var kanaEventTime = 0L
+    private var kanaDownTime = 0L
+    private var kanaHoldTimeout = 0L
+    private var kanaSinglePointer = false
+    private var kanaLayoutGeneration = 0L
+    private fun kanaKey(key: KeyData) = "${System.identityHashCode(this)}:$kanaLayoutGeneration:${key.keyId ?: "${key.row}:${key.column}:${key.keyType}"}"
     private var listener: OnKeyboardActionListener? = null
     private val flickTextPreviewEmitter = FlickTextPreviewEmitter()
     private var previewKeyData: KeyData? = null
@@ -622,6 +630,8 @@ class FlickKeyboardView @JvmOverloads constructor(
             return
         }
         Log.d("FlickKeyboardView", "setKeyboard (Full Rebuild)")
+        kanaLayoutGeneration++
+        kanaGestureObserver?.cancel()
 
         doubleTapActionDispatcher.cancel()
         cancelTrackedTouchState()
@@ -1548,6 +1558,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         applyPopupViewStyle(popupViewStyleSet.directional)
 
                         this.listener = object : CustomAngleFlickController.FlickListener {
+                            override fun onHold() { kanaGestureObserver?.cancel() }
                             override fun onPress(action: FlickAction?) {
                                 when (action) {
                                     is FlickAction.Input -> notifyTextPress(keyData, action.char)
@@ -1742,6 +1753,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                             override fun onFlickLongPress(action: KeyAction) {
                                 if (action !is KeyAction.Text) {
                                     doubleTapActionDispatcher.interrupt()
+                                    kanaGestureObserver?.cancel()
                                     this@FlickKeyboardView.listener?.onFlickActionLongPress(action)
                                 }
                             }
@@ -1915,11 +1927,14 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     notifyTextPress(keyData, character)
                                 }
 
-                                override fun onFlick(character: String) {
+                                override fun onFlick(character: String) = onCommitted(character, true)
+
+                                override fun onCommitted(character: String, isFlick: Boolean) {
                                     dispatchCommittedKeyAction(
                                         keyData,
                                         KeyAction.Text(character),
-                                        isFlick = true
+                                        isFlick = true,
+                                        kanaTap = !isFlick
                                     )
                                 }
 
@@ -2125,6 +2140,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                             override fun onFlickLongPress(action: KeyAction) {
                                 if (action !is KeyAction.Text) {
                                     doubleTapActionDispatcher.interrupt()
+                                    kanaGestureObserver?.cancel()
                                     this@FlickKeyboardView.listener?.onFlickActionLongPress(action)
                                 }
                             }
@@ -2291,6 +2307,7 @@ class FlickKeyboardView @JvmOverloads constructor(
 
                                 override fun onLongPress() {
                                     doubleTapActionDispatcher.interrupt()
+                                    kanaGestureObserver?.cancel()
                                     this@FlickKeyboardView.listener?.onActionLongPress(
                                         currentAction()
                                     )
@@ -2368,6 +2385,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                                 first: TfbiFlickDirection,
                                 second: TfbiFlickDirection
                             ): Boolean {
+                                kanaGestureObserver?.cancel()
                                 val output = twoStepLongPressMap?.get(first)?.get(second).orEmpty()
                                 if (output.isEmpty()) return false
 
@@ -2386,6 +2404,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                                 second: TfbiFlickDirection,
                                 isLongPress: Boolean
                             ) {
+                                if (isLongPress) kanaGestureObserver?.cancel()
                                 val longPressText = if (isLongPress) {
                                     twoStepLongPressMap?.get(first)?.get(second)
                                 } else {
@@ -2457,6 +2476,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         setInputTextTransform(::transformInputTextForDisplay)
                         applyPopupViewStyle(popupViewStyleSet.tfbi)
                         this.listener = object : FlickLongPressInputController.Listener {
+                            override fun onHold() { kanaGestureObserver?.cancel() }
                             override fun onPress(character: String) {
                                 notifyTextPress(keyData, character)
                             }
@@ -2510,6 +2530,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         setInputTextTransform(::transformInputTextForDisplay)
                         applyPopupViewStyle(popupViewStyleSet.tfbi)
                         this.listener = object : TfbiStickyFlickController.TfbiListener {
+                            override fun onHold() { kanaGestureObserver?.cancel() }
                             override fun onPress(
                                 first: TfbiFlickDirection,
                                 second: TfbiFlickDirection
@@ -2584,15 +2605,24 @@ class FlickKeyboardView @JvmOverloads constructor(
                         setModeSwitchAngleMargin(hierarchicalFlickModeSwitchAngleMargin)
                         applyPopupViewStyle(popupViewStyleSet.tfbi)
                         this.listener = object : TfbiHierarchicalFlickController.TfbiListener {
+                            override fun onHold() { kanaGestureObserver?.cancel() }
                             override fun onPress(character: String) {
                                 notifyTextPress(keyData, character)
                             }
 
                             override fun onFlick(character: String) {
-                                onFlick(character, isTwoStepFlick = false)
+                                onCommitted(character, isFlick = true, isTwoStepFlick = false)
                             }
 
                             override fun onFlick(character: String, isTwoStepFlick: Boolean) {
+                                onCommitted(character, isFlick = true, isTwoStepFlick)
+                            }
+
+                            override fun onCommitted(
+                                character: String,
+                                isFlick: Boolean,
+                                isTwoStepFlick: Boolean
+                            ) {
                                 Log.d(
                                     "FlickKeyboardView KeyType.HIERARCHICAL_FLICK",
                                     "Char: $character"
@@ -2602,6 +2632,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                                         keyData,
                                         KeyAction.Text(character),
                                         isFlick = true,
+                                        kanaTap = !isFlick,
                                         hapticContext = InputHapticContext(isTwoStepFlick)
                                     )
                                 }
@@ -2690,6 +2721,9 @@ class FlickKeyboardView @JvmOverloads constructor(
         action: KeyAction,
         isFlick: Boolean,
         isLongPress: Boolean = false,
+        // Some legacy controllers always report a flick to the IME. Preserve that
+        // behavior while observing the actual tap independently for small-tsu.
+        kanaTap: Boolean = !isFlick,
         hapticContext: InputHapticContext = InputHapticContext(),
     ) {
         val dispatch = dispatch@{
@@ -2731,6 +2765,7 @@ class FlickKeyboardView @JvmOverloads constructor(
             }
         }
         val textAction = action as? KeyAction.Text
+        val deliver = {
         if (textAction != null && canPreviewText(keyData, textAction)) {
             flickTextPreviewEmitter.commit(
                 FlickTextSelection(textAction.text, isFlick),
@@ -2740,6 +2775,19 @@ class FlickKeyboardView @JvmOverloads constructor(
         } else {
             cancelTextPreview()
             dispatch()
+        }
+        }
+        val observer = kanaGestureObserver
+        val heldTap = kanaTap && kanaEventTime - kanaDownTime >= kanaHoldTimeout
+        val eligible = kanaSinglePointer && !isLongPress && !heldTap && !keyData.isSpecialKey &&
+            keyData.textInputBehavior != KeyTextInputBehavior.TOGGLE &&
+            keyData.doubleTapBinding == null && keyData.effectiveDoubleTapBinding(action) == null &&
+            currentLayout?.isRomaji != true && currentLayout?.isDirectMode != true
+        if (observer != null && textAction != null && eligible) {
+            observer.text(textAction.text, kanaTap, kanaEventTime, deliver)
+        } else {
+            observer?.cancel()
+            deliver()
         }
     }
 
@@ -2890,6 +2938,8 @@ class FlickKeyboardView @JvmOverloads constructor(
     private fun cancelTrackedTouchState() {
         cancelTextPreview()
         if (motionTargets.isEmpty() && pointerDownTime.isEmpty()) return
+        kanaGestureObserver?.cancel()
+        kanaSinglePointer = false
 
         val eventTime = SystemClock.uptimeMillis()
         motionTargets.toList().forEach { (trackedPointerId, target) ->
@@ -3057,6 +3107,11 @@ class FlickKeyboardView @JvmOverloads constructor(
             (displayX - target.displayOriginX) / target.displayScaleX + target.localOffsetX - displayX,
             (displayY - target.displayOriginY) / target.displayScaleY + target.localOffsetY - displayY
         )
+        if (action == MotionEvent.ACTION_DOWN && kanaSinglePointer) {
+            val key = keyInfos.firstOrNull { it.view === target.view }?.keyData
+            if (key != null && !isCursorMode) kanaGestureObserver?.down(kanaKey(key), source.eventTime)
+            else kanaGestureObserver?.cancel()
+        }
         target.view.dispatchTouchEvent(childEvent)
         childEvent.recycle()
     }
@@ -3081,6 +3136,16 @@ class FlickKeyboardView @JvmOverloads constructor(
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         val action = event.actionMasked
+        kanaEventTime = event.eventTime
+        when (action) {
+            MotionEvent.ACTION_DOWN -> {
+                kanaSinglePointer = true
+                kanaDownTime = event.eventTime
+                kanaHoldTimeout = runtimeGestureSettings.snapshot().longPressTimeoutMillis
+            }
+            MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_POINTER_UP,
+            MotionEvent.ACTION_CANCEL -> { kanaSinglePointer = false; kanaGestureObserver?.cancel() }
+        }
         val pointerIndex = event.actionIndex
         val pointerId = event.getPointerId(pointerIndex)
 
@@ -3153,6 +3218,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                     displayY = event.displayY(pointerIndex)
                 )
 
+                if (targetView == null) kanaGestureObserver?.cancel()
                 targetView?.let { target ->
                     motionTargets[pointerId] = target
                     dispatchPointerEvent(
@@ -3340,6 +3406,7 @@ class FlickKeyboardView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        kanaGestureObserver?.cancel()
         controllerRebindPending = true
         doubleTapActionDispatcher.cancel()
         cancelTextPreview()
@@ -3359,6 +3426,7 @@ class FlickKeyboardView @JvmOverloads constructor(
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
+        if (visibility != View.VISIBLE) kanaGestureObserver?.cancel()
         if (changedView == this && visibility != View.VISIBLE) {
             doubleTapActionDispatcher.cancel()
             cancelTextPreview()

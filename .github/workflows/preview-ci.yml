@@ -58,9 +58,12 @@ jobs:
           echo "PREVIEW_VERSION_CODE=$code" >> "$GITHUB_ENV"
       - name: Keyboard unit tests
         run: bash ./gradlew :custom_keyboard:test --no-daemon --console=plain --max-workers=2
+      - name: Core unit tests
+        run: bash ./gradlew :core:testDebugUnitTest --no-daemon --console=plain --max-workers=2
       - name: Full app regression tests
         run: |
           bash ./gradlew :app:testFullStandardDebugUnitTest \
+            --tests '*SmallTsu*' \
             --tests '*VibrationTimingPolicyTest' \
             --tests '*CustomHapticSettingsEntryPointTest' \
             --tests '*CustomHapticBackupCompatibilityTest' \
@@ -106,6 +109,8 @@ jobs:
           path: |
             custom_keyboard/build/test-results/
             custom_keyboard/build/reports/tests/
+            core/build/test-results/
+            core/build/reports/tests/
             app/build/test-results/testFullStandardDebugUnitTest/
             app/build/reports/tests/testFullStandardDebugUnitTest/
           retention-days: 14

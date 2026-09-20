@@ -4872,7 +4872,12 @@ object AppPreference {
         preferences.edit { editor ->
             if (replaceAll) editor.clear()
 
+            SmallTsuPreferences.keys.forEach(editor::remove)
             backup.entries.forEach { e ->
+                if (e.key in SmallTsuPreferences.keys) {
+                    SmallTsuPreferences.importEntry(editor, e)
+                    return@forEach
+                }
                 when (e.type) {
                     "null" -> editor.remove(e.key)
                     "boolean" -> editor.putBoolean(e.key, (e.value as Boolean))
