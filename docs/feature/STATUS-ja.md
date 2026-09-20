@@ -1,6 +1,17 @@
 # ダブルタップ促音・Feature共通枠の検証記録
 
-## 完了範囲
+## 最新：2026-09-20 使い方改善版
+
+旧「共通」タブから設定を開く導線、判定時間・2回目出力の説明、実機確認HTMLの訂正を実装した。
+詳細・最終SHA・CI結果・APK情報・#13からの更新手順は
+[使い方改善版の記録](usability-update-2026-09-20.md)を参照。
+[CI #15](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35491809548)はverify・device成功。
+JVM 406件、Python 4件、実IME 20条件が成功し、未署名Full Feature APKの生成・実体検査まで完了した。
+未署名APKは実機へインストールできない。所有者による署名ONの新規実行とEnvironment承認が次の工程。
+入力処理と初期値200ms、Feature共通配布・署名基盤は維持する。
+次版の署名と実機での更新・設定保持は未完了。以下は前回の署名済み#13と9/18〜19の報告記録。
+
+## 前回#13の完了範囲
 
 機能実装、設定、GitHub保存、テスト、Full Standard Feature APKの生成・実体検査・**専用鍵による署名まで完了**。
 [run #13](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35236398155) はverify・device・signがすべて成功。
