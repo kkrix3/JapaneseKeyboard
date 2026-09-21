@@ -67,6 +67,12 @@ enum class ShortcutType(
         activeIconResId = com.kazumaproject.core.R.drawable.language_japanese_kana_right_24px,
         description = "入力方式切替"
     ),
+    SMALL_TSU_TOGGLE(
+        "double_tap_small_tsu_toggle",
+        com.kazumaproject.core.R.drawable.double_tap_small_tsu_off,
+        activeIconResId = com.kazumaproject.core.R.drawable.double_tap_small_tsu_on,
+        description = "ダブルタップ促音",
+    ),
     LIVE_CONVERSION_TOGGLE(
         "live_conversion_toggle",
         com.kazumaproject.core.R.drawable.live_conversion_24px,

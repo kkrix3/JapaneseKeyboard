@@ -10,7 +10,9 @@ internal fun resolveShortcutActiveTypes(
     liveConversionEnabled: Boolean,
     learningPaused: Boolean = false,
     handwritingActive: Boolean = false,
+    smallTsuEnabled: Boolean = false,
 ): Set<ShortcutType> = buildSet {
+    if (smallTsuEnabled) add(ShortcutType.SMALL_TSU_TOGGLE)
     if (keyboardLayoutEditActive) {
         add(ShortcutType.KEYBOARD_LAYOUT_EDIT)
     }

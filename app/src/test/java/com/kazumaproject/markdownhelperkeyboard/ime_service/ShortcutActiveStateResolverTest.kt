@@ -4,6 +4,7 @@ import com.kazumaproject.markdownhelperkeyboard.ime_service.input_behavior.Resol
 import com.kazumaproject.markdownhelperkeyboard.repository.ShortcutRepository
 import com.kazumaproject.markdownhelperkeyboard.short_cut.ShortcutType
 import com.kazumaproject.markdownhelperkeyboard.short_cut.database.ShortcutDao
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
@@ -12,6 +13,18 @@ import org.junit.Test
 import org.mockito.kotlin.mock
 
 class ShortcutActiveStateResolverTest {
+    @Test
+    fun smallTsuToggleUsesDedicatedOffAndOnIcons() {
+        assertEquals(
+            com.kazumaproject.core.R.drawable.double_tap_small_tsu_off,
+            ShortcutType.SMALL_TSU_TOGGLE.iconResId,
+        )
+        assertEquals(
+            com.kazumaproject.core.R.drawable.double_tap_small_tsu_on,
+            ShortcutType.SMALL_TSU_TOGGLE.activeIconResId,
+        )
+    }
+
     @Test
     fun handwritingShortcutIsActiveWhileSurfaceIsShown() {
         val active = resolveShortcutActiveTypes(

@@ -42,6 +42,7 @@ class FlickLongPressInputController(
 
     interface Listener {
         fun onPress(character: String)
+        fun onHold() {}
         fun onCommit(character: String, isFlick: Boolean)
     }
 
@@ -78,6 +79,7 @@ class FlickLongPressInputController(
         if (longPressMap[direction].orEmpty().isEmpty()) return@Runnable
 
         isLongPressActive = true
+        listener?.onHold()
         updatePopupCharacters()
         popupView?.highlightDirection(direction)
     }

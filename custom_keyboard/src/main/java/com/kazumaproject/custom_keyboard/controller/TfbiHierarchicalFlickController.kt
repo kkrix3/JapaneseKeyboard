@@ -62,6 +62,10 @@ class TfbiHierarchicalFlickController(
         fun onFlick(character: String, isTwoStepFlick: Boolean) {
             onFlick(character)
         }
+        fun onCommitted(character: String, isFlick: Boolean, isTwoStepFlick: Boolean) {
+            onFlick(character, isTwoStepFlick)
+        }
+        fun onHold() {}
         fun onSelectionChanged(character: String?, isFlick: Boolean) {}
         fun onCanceled() {}
 
@@ -136,6 +140,7 @@ class TfbiHierarchicalFlickController(
     private val longPressRunnable = Runnable {
         val view = attachedView ?: return@Runnable
         if (activeGestureConfig == null || mapStack.size > 1) return@Runnable
+        listener?.onHold()
         popupWindow?.dismiss()
         showPopup(view, true)
     }
@@ -474,7 +479,11 @@ class TfbiHierarchicalFlickController(
         }
 
         if (selectedNode != null) {
-            listener?.onFlick(selectedNode.char, committedFlickDepth() >= 2)
+            listener?.onCommitted(
+                selectedNode.char,
+                mapStack.size > 1 || finalDirection != TfbiFlickDirection.TAP,
+                committedFlickDepth() >= 2
+            )
         }
 
         // 1タッチの終了

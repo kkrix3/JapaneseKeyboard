@@ -27,6 +27,12 @@
 
     <PreferenceCategory android:title="@string/category_title_keyboard">
         <Preference
+            android:icon="@drawable/input_24px"
+            android:key="setting_route_input_method"
+            android:summary="ダブルタップ促音のON/OFF、判定時間、対象行などを設定します。"
+            android:title="@string/setting_category_input_method_title" />
+
+        <Preference
             android:icon="@drawable/outline_border_color_24"
             android:key="keyboard_selection_preference"
             android:summary="@string/keyboard_selection_summary"
