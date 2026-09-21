@@ -69,8 +69,8 @@ enum class ShortcutType(
     ),
     SMALL_TSU_TOGGLE(
         "double_tap_small_tsu_toggle",
-        com.kazumaproject.core.R.drawable.kana_small,
-        activeIconResId = com.kazumaproject.core.R.drawable.baseline_check_24,
+        com.kazumaproject.core.R.drawable.double_tap_small_tsu_off,
+        activeIconResId = com.kazumaproject.core.R.drawable.double_tap_small_tsu_on,
         description = "ダブルタップ促音",
     ),
     LIVE_CONVERSION_TOGGLE(
