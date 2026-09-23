@@ -70,6 +70,33 @@ class CrossFlickInputControllerActionCommitTest {
     fun nonDoNothingActionRemainsVisibleInPopup() {
         assertEquals(true, isVisiblePopupAction(FlickAction.Action(KeyAction.Paste)))
     }
+
+    @Test
+    fun mixedSpecialFlickCommitsTextFromUpAndActionFromTap() {
+        val committed = mutableListOf<Triple<KeyAction?, Boolean, FlickDirection>>()
+        val listener = object : NoopCrossFlickListener() {
+            override fun onFlickCommitted(
+                fallbackAction: KeyAction?,
+                isFlick: Boolean,
+                direction: FlickDirection
+            ) {
+                committed += Triple(fallbackAction, isFlick, direction)
+            }
+        }
+        val map = mapOf(
+            FlickDirection.TAP to FlickAction.Action(KeyAction.ToggleDakuten),
+            FlickDirection.UP to FlickAction.Input("っ")
+        )
+
+        commitCrossFlickAction(FlickDirection.TAP, map, false, listener)
+        commitCrossFlickAction(FlickDirection.UP, map, false, listener)
+
+        assertEquals(listOf(
+            Triple(KeyAction.ToggleDakuten, false, FlickDirection.TAP),
+            Triple(KeyAction.Text("っ"), true, FlickDirection.UP)
+        ), committed)
+        assertEquals(true, isVisiblePopupAction(map.getValue(FlickDirection.UP)))
+    }
 }
 
 private open class NoopCrossFlickListener : CrossFlickInputController.CrossFlickListener {
