@@ -10,6 +10,6 @@
     "*KeyboardBackup*Test"
   ],
   "deviceTestClasses": [
-    "com.kazumaproject.markdownhelperkeyboard.zenz.ZenzImeLongPressInstrumentedTest"
+    "com.kazumaproject.markdownhelperkeyboard.SpecialFlickFeatureImeSmokeTest"
   ]
 }
