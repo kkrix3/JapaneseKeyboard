@@ -74,11 +74,23 @@ android {
 
     variantFilter { variant ->
         def flavorNames = variant.flavors*.name
+        if (variant.buildType.name == 'feature' && flavorNames != ['full', 'standard']) {
+            setIgnore(true)
+        }
         if (flavorNames.contains("full") && flavorNames.contains("fdroid")) {
             setIgnore(true)
         }
     }
 
+    def featureCodeText = providers.gradleProperty('featureVersionCode').orElse('1').get()
+    if (!(featureCodeText ==~ /[1-9][0-9]{0,9}/) || featureCodeText.toLong() > 2100000000L) {
+        throw new GradleException('featureVersionCode must be in 1..2100000000')
+    }
+    def featureCode = featureCodeText.toInteger()
+    def featureTag = providers.gradleProperty('featureBuildTag').orElse('local').get()
+    if (!(featureTag ==~ /[a-zA-Z0-9._-]{1,100}/)) {
+        throw new GradleException('Invalid featureBuildTag')
+    }
     def shouldSplitApks = project.hasProperty('splitApks')
 
     if (shouldSplitApks) {
@@ -105,6 +117,23 @@ android {
         releaseUnsigned {
             initWith release
             signingConfig null
+            matchingFallbacks = ['release']
+        }
+    }
+    buildTypes {
+        debug {
+            // Disposable emulator harness only; never a Feature distribution APK.
+            if (providers.gradleProperty('featureDeviceTest').orElse('false').get() == 'true') {
+                applicationIdSuffix '.feature.testbench'
+                versionNameSuffix '-feature-testbench'
+            }
+        }
+        feature {
+            initWith releaseUnsigned
+            applicationIdSuffix '.feature'
+            versionNameSuffix "-feature-${featureTag}"
+            signingConfig null
+            debuggable false
             matchingFallbacks = ['release']
         }
     }
@@ -146,6 +175,11 @@ android {
 
     applicationVariants.configureEach { variant ->
         variant.outputs.each { output ->
+            if (variant.buildType.name == 'feature') {
+                if (shouldSplitApks) throw new GradleException('Feature requires a universal APK')
+                output.versionCodeOverride = featureCode
+                output.outputFileName = "sumire-feature-${featureTag}-${variant.flavorName}-unsigned.apk"
+            }
             def flavorPrefix = variant.flavorName ? "${variant.flavorName}-" : ""
             // 分割モードが有効な場合のみ実行
             if (shouldSplitApks) {
