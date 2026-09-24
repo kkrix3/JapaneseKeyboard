@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="special_flick_input_text">文字列を入力</string>
     <string name="candidate_badge_calculation">[計算]</string>
     <string name="candidate_badge_unit_conversion">[換算]</string>
     <string name="candidate_badge_formula_unicode">[文字]</string>
