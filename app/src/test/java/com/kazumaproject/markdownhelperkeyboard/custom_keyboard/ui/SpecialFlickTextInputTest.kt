@@ -3,6 +3,7 @@ package com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui
 import com.kazumaproject.custom_keyboard.data.FlickAction
 import com.kazumaproject.custom_keyboard.data.FlickDirection
 import com.kazumaproject.custom_keyboard.data.KeyAction
+import com.kazumaproject.custom_keyboard.data.KeyActionMapper
 import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.data.FlickMapping
 import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.data.toDbStrings
 import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.data.toFlickAction
@@ -41,6 +42,23 @@ class SpecialFlickTextInputTest {
         assertNull(SpecialFlickMappingItem(direction = FlickDirection.UP, action = KeyAction.InputText(""))
             .toFlickAction(null))
         assertNull((null as FlickAction?).toSpecialFlickEditorAction())
+    }
+
+    @Test
+    fun textTapKeepsLiteralTextInMapAndKeyActionAfterReload() {
+        val tap = SpecialFlickMappingItem(
+            direction = FlickDirection.TAP,
+            action = KeyAction.InputText("っ")
+        )
+        val savedAction = tap.toFlickAction(null)!!
+        val (type, value) = savedAction.toDbStrings()
+        val restoredAction = FlickMapping(1L, 0, FlickDirection.TAP, type, value).toFlickAction()
+        val keyAction = tap.action!!.toSpecialFlickTapAction()
+
+        assertEquals("INPUT_TEXT" to "っ", type to value)
+        assertEquals(KeyAction.InputText("っ"), restoredAction.toSpecialFlickEditorAction())
+        assertEquals(KeyAction.Text("っ"), keyAction)
+        assertEquals(keyAction, KeyActionMapper.toKeyAction(KeyActionMapper.fromKeyAction(keyAction)))
     }
 
     @Test
