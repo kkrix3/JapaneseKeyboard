@@ -1,7 +1,7 @@
 {
   "baseSha": "ad80fdb3aea38b9086d823cd6ead66c4523126ea",
   "featureRef": "feature/custom-special-flick-text-input",
-  "featureSha": "6aa992a52ac99d7e0d894ac3034e717b6aa0818e",
+  "featureSha": "c0366f70609a24dd85b21eed85dd698d19154310",
   "infrastructureRef": "build/feature-apk-infrastructure-pr4-upstream",
   "infrastructureSha": "384f009bbca30fcec9ffa9f626a8a8a69480b8f8",
   "appTestFilters": [

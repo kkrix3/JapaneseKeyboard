@@ -12,6 +12,11 @@ import androidx.preference.PreferenceManager
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import com.kazumaproject.custom_keyboard.data.FlickAction
+import com.kazumaproject.custom_keyboard.data.FlickDirection
+import com.kazumaproject.custom_keyboard.data.KeyAction
+import com.kazumaproject.custom_keyboard.data.KeyType
+import com.kazumaproject.custom_keyboard.data.copyWithKeys
 import com.kazumaproject.custom_keyboard.layout.KeyboardDefaultLayouts
 import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui.KeyboardEditorViewModel
 import com.kazumaproject.markdownhelperkeyboard.ime_service.di.AppModule
@@ -50,7 +55,8 @@ class SpecialFlickFeatureImeSmokeTest {
             visibleNodes().firstOrNull { node ->
                 node.packageName?.toString() == instrumentation.targetContext.packageName &&
                     node.isVisibleToUser && node.isClickable &&
-                    node.text?.toString()?.lineSequence()?.firstOrNull()?.trim() == label
+                    (node.text?.toString()?.lineSequence()?.firstOrNull()?.trim() == label ||
+                        node.contentDescription?.toString()?.trim() == label)
             }?.let { node ->
                 return Rect().also(node::getBoundsInScreen)
             }
@@ -76,6 +82,28 @@ class SpecialFlickFeatureImeSmokeTest {
         }
     }
 
+    private fun flickUpAfterHold(rect: Rect) {
+        val downTime = SystemClock.uptimeMillis()
+        val x = rect.exactCenterX()
+        val startY = rect.exactCenterY()
+        val upY = startY - maxOf(rect.height() * 1.5f, 120f)
+        fun inject(action: Int, y: Float) {
+            val event = MotionEvent.obtain(
+                downTime, SystemClock.uptimeMillis(), action, x, y, 0
+            ).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+            try {
+                check(automation.injectInputEvent(event, true)) { "Could not inject held flick" }
+            } finally {
+                event.recycle()
+            }
+        }
+        inject(MotionEvent.ACTION_DOWN, startY)
+        SystemClock.sleep(700)
+        inject(MotionEvent.ACTION_MOVE, upY)
+        SystemClock.sleep(50)
+        inject(MotionEvent.ACTION_UP, upY)
+    }
+
     @Test(timeout = 120_000)
     fun savedCustomKeyboardInputsKanaInRealIme() = runBlocking {
         val context = instrumentation.targetContext
@@ -88,7 +116,25 @@ class SpecialFlickFeatureImeSmokeTest {
             val repository = KeyboardRepository(database.keyboardLayoutDao())
             val editor = KeyboardEditorViewModel(repository)
             editor.applyTemplate(KeyboardDefaultLayouts.createFlickKanaTemplateLayout(isDefaultKey = true))
-            repository.saveLayout(editor.uiState.value.layout, "PR 4 IME smoke test", null)
+            val base = editor.uiState.value.layout
+            val special = base.keys.first { it.label == "さ" }.copy(
+                label = "試験",
+                keyId = "pr4_special",
+                keyType = KeyType.CROSS_FLICK,
+                action = KeyAction.ToggleDakuten,
+                isSpecialKey = true
+            )
+            val layout = base.copyWithKeys(
+                base.keys.map { if (it.label == "さ") special else it }
+            ).copy(
+                flickKeyMaps = base.flickKeyMaps + (
+                    "pr4_special" to listOf(mapOf(
+                        FlickDirection.TAP to FlickAction.Action(KeyAction.ToggleDakuten),
+                        FlickDirection.UP to FlickAction.Input("っ")
+                    ))
+                )
+            )
+            repository.saveLayout(layout, "PR 4 IME held flick test", null)
             automation.serviceInfo = automation.serviceInfo.apply {
                 flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
                     AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
@@ -112,6 +158,9 @@ class SpecialFlickFeatureImeSmokeTest {
                 var actual = ""
                 scenario.onActivity { activity -> actual = activity.editText.text.toString() }
                 assertEquals("Saved custom keyboard should reach the editor", "あか", actual)
+                flickUpAfterHold(key("試験"))
+                scenario.onActivity { activity -> actual = activity.editText.text.toString() }
+                assertEquals("Holding then flicking Up should input text", "あかっ", actual)
             }
         } finally {
             if (oldIme.isNotEmpty() && oldIme != "null") shell("ime set $oldIme")
