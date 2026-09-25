@@ -160,7 +160,7 @@ class SpecialFlickFeatureImeSmokeTest {
                 assertEquals("Saved custom keyboard should reach the editor", "あか", actual)
                 flickUpAfterHold(key("試験"))
                 scenario.onActivity { activity -> actual = activity.editText.text.toString() }
-                assertEquals("Holding then flicking Up should input text", "あかっ", actual)
+                assertEquals("Held Tap action runs before Up text is committed", "あがっ", actual)
             }
         } finally {
             if (oldIme.isNotEmpty() && oldIme != "null") shell("ime set $oldIme")
