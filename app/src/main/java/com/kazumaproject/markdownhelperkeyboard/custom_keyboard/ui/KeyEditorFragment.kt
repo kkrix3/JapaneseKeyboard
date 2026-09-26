@@ -211,6 +211,7 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
         // 特殊フリック用アクションスピナー（セル選択後に表示）
         val specialActionNames = mutableListOf("").apply {
             addAll(specialFlickDisplayActions.map { it.displayName })
+            add(getString(R.string.special_flick_input_text))
         }
         val specialActionAdapter = ArrayAdapter(
             requireContext(),
@@ -289,6 +290,16 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
                     binding.flickGridEditorView.updateCellLabel(mode, text)
                     updateDoneButtonState()
                 }
+                is CellMode.SpecialFlick -> {
+                    val itemIdx = currentSpecialFlickItems.indexOfFirst { it.direction == mode.direction }
+                    if (itemIdx != -1 && currentSpecialFlickItems[itemIdx].action is KeyAction.InputText) {
+                        currentSpecialFlickItems[itemIdx] = currentSpecialFlickItems[itemIdx]
+                            .copy(action = KeyAction.InputText(text))
+                        binding.flickGridEditorView.updateCellIcon(mode, null, text)
+                        if (mode.direction == FlickDirection.TAP) refreshIconPreview()
+                        updateDoneButtonState()
+                    }
+                }
                 else -> Unit
             }
         }
@@ -297,10 +308,11 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
         binding.specialFlickMappingsRecyclerView.setOnItemClickListener { _, _, idx, _ ->
             val mode = currentCellMode as? CellMode.SpecialFlick ?: return@setOnItemClickListener
             val item = currentSpecialFlickItems.firstOrNull { it.direction == mode.direction }
-            val selectedAction = if (idx == 0) {
-                null
-            } else {
-                resolveSpecialFlickSelectedAction(
+            val selectedAction = when (idx) {
+                0 -> null
+                specialFlickDisplayActions.size + 1 ->
+                    (item?.action as? KeyAction.InputText) ?: KeyAction.InputText("")
+                else -> resolveSpecialFlickSelectedAction(
                     selectedAction = specialFlickDisplayActions[idx - 1].action,
                     currentAction = item?.action,
                     selectedTargetStableId = selectedTargetCustomKeyboardStableId,
@@ -314,9 +326,15 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
                 binding.flickGridEditorView.updateCellIcon(
                     mode,
                     displayAction?.iconResId,
-                    displayAction?.displayName ?: "",
+                    (selectedAction as? KeyAction.InputText)?.text ?: displayAction?.displayName.orEmpty(),
                     selectedAction
                 )
+                val textAction = selectedAction as? KeyAction.InputText
+                binding.textCharInputLayout.isVisible = textAction != null
+                if (textAction != null) {
+                    binding.textCharInputLayout.hint = getString(R.string.special_flick_input_text)
+                    setCharEditorValue(textAction.text)
+                }
                 if (mode.direction == FlickDirection.TAP) {
                     refreshIconPreview()
                 }
@@ -801,10 +819,19 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
             is CellMode.SpecialFlick -> {
                 val currentAction = currentSpecialFlickItems
                     .firstOrNull { it.direction == mode.direction }?.action
-                val currentName = currentAction?.let { act ->
-                    specialFlickDisplayActions.displayActionFor(act)?.displayName
-                }.orEmpty()
-                binding.textCharInputLayout.isVisible = false
+                val textAction = currentAction as? KeyAction.InputText
+                val currentName = if (textAction != null) {
+                    getString(R.string.special_flick_input_text)
+                } else {
+                    currentAction?.let { act ->
+                        specialFlickDisplayActions.displayActionFor(act)?.displayName
+                    }.orEmpty()
+                }
+                binding.textCharInputLayout.isVisible = textAction != null
+                if (textAction != null) {
+                    binding.textCharInputLayout.hint = getString(R.string.special_flick_input_text)
+                    setCharEditorValue(textAction.text)
+                }
                 binding.specialFlickEditorGroup.isVisible = true
                 binding.specialFlickMappingsRecyclerView.setText(currentName, false)
                 updateCustomKeyboardTargetVisibility()
@@ -1127,6 +1154,7 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
                         .firstOrNull { it.direction == FlickDirection.TAP }
                         ?.action
                     tapAction != null &&
+                            (tapAction !is KeyAction.InputText || tapAction.text.isNotEmpty()) &&
                             currentSpecialFlickItems.hasOnlyValidMoveToCustomKeyboardTargets(
                                 validTargetStableIds()
                             )
@@ -1276,8 +1304,10 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
                     binding.specialCategoryChipGroup.check(R.id.chip_special_flick)
 
                     currentSpecialFlickItems = allowedSpecialFlickDirections.map { dir ->
-                        val saved = flickMap[dir] as? FlickAction.Action
-                        SpecialFlickMappingItem(direction = dir, action = saved?.action)
+                        SpecialFlickMappingItem(
+                            direction = dir,
+                            action = flickMap[dir].toSpecialFlickEditorAction()
+                        )
                     }.toMutableList()
 
                     handleSpecialCategoryUi()
@@ -1859,6 +1889,7 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
 
                     if (
                         tapAction == null ||
+                        (tapAction is KeyAction.InputText && tapAction.text.isEmpty()) ||
                         !currentSpecialFlickItems.hasOnlyValidMoveToCustomKeyboardTargets(
                             validTargetStableIds()
                         )
@@ -1866,30 +1897,21 @@ class KeyEditorFragment : Fragment(R.layout.fragment_key_editor) {
                         return
                     }
 
-                    newAction = tapAction
+                    // KeyAction.InputText has legacy special handling for some strings in the IME.
+                    // A literal TAP must take the same text dispatch path as FlickAction.Input.
+                    newAction = tapAction.toSpecialFlickTapAction()
 
                     val tapDisplay = displayActionForAction(newAction)
                     newDrawableResId = tapDisplay?.iconResId
 
                     Timber.d("KeyEditorFragment onDone: [$newAction] [$newDrawableResId]")
-                    newLabel =
-                        newAction.toString()
+                    newLabel = (newAction as? KeyAction.Text)?.text ?: newAction.toString()
 
                     // Build flick map from 5 items (save only non-null)
-                    newFlickMap = currentSpecialFlickItems
-                        .mapNotNull { item ->
-                            val act = item.action ?: return@mapNotNull null
-                            val display = displayActionForAction(act)
-
-                            Timber.d("KeyEditorFragment onDone: act=$act, iconFromDisplayActions=${display?.iconResId} [${item.direction}]")
-
-                            item.direction to FlickAction.Action(
-                                action = act,
-                                label = null,
-                                drawableResId = display?.iconResId
-                            )
-                        }
-                        .toMap()
+                    newFlickMap = currentSpecialFlickItems.mapNotNull { item ->
+                        val iconResId = item.action?.let(::displayActionForAction)?.iconResId
+                        item.toFlickAction(iconResId)?.let { item.direction to it }
+                    }.toMap()
 
                     if (newAction == KeyAction.VoiceInput) {
                         val context = requireContext()
