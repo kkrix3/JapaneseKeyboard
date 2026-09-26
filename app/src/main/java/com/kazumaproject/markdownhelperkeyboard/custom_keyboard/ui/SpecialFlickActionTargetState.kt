@@ -1,9 +1,28 @@
 package com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui
 
 import com.kazumaproject.custom_keyboard.data.FlickDirection
+import com.kazumaproject.custom_keyboard.data.FlickAction
 import com.kazumaproject.custom_keyboard.data.KeyAction
 import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui.adapter.DisplayActionUi
 import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui.adapter.SpecialFlickMappingItem
+
+internal fun FlickAction?.toSpecialFlickEditorAction(): KeyAction? = when (this) {
+    is FlickAction.Input -> KeyAction.InputText(char)
+    is FlickAction.Action -> action
+    null -> null
+}
+
+internal fun KeyAction.toSpecialFlickTapAction(): KeyAction = when (this) {
+    is KeyAction.InputText -> KeyAction.Text(text)
+    else -> this
+}
+
+internal fun SpecialFlickMappingItem.toFlickAction(iconResId: Int?): FlickAction? =
+    when (val selected = action) {
+        is KeyAction.InputText -> selected.text.takeIf(String::isNotEmpty)?.let { FlickAction.Input(it) }
+        null -> null
+        else -> FlickAction.Action(selected, drawableResId = iconResId)
+    }
 
 internal fun DisplayActionUi.matchesAction(action: KeyAction): Boolean {
     return when (action) {

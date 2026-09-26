@@ -958,19 +958,17 @@ internal fun commitCrossFlickAction(
     listener: CrossFlickInputController.CrossFlickListener?
 ) {
     val isFlick = currentDirection != FlickDirection.TAP
-    val flickActionToCommit = resolveCrossFlickAction(currentDirection, flickActionMap)
-    if (isLongPressTriggered) {
+    val action = resolveCrossFlickAction(currentDirection, flickActionMap)?.toKeyAction()
+    // A held text flick still commits its selected text. The long-press callback
+    // is reserved for special actions, which may have a separate hold behavior.
+    if (isLongPressTriggered && action !is KeyAction.Text) {
         listener?.onFlickUpAfterLongPress(
-            flickActionToCommit?.toKeyAction() ?: KeyAction.Cancel,
+            action ?: KeyAction.Cancel,
             isFlick,
             currentDirection
         )
     } else {
-        listener?.onFlickCommitted(
-            flickActionToCommit?.toKeyAction(),
-            isFlick,
-            currentDirection
-        )
+        listener?.onFlickCommitted(action, isFlick, currentDirection)
     }
 }
 

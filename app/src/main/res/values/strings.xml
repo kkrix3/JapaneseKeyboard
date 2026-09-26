@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="special_flick_input_text">Input text</string>
     <string name="candidate_badge_calculation">[Calc]</string>
     <string name="candidate_badge_unit_conversion">[Convert]</string>
     <string name="candidate_badge_formula_unicode">[Text]</string>

@@ -626,7 +626,10 @@ class FlickGridEditorView @JvmOverloads constructor(
             val action = item?.action
             val displayAction = action?.let { a -> displayActions.displayActionFor(a) }
             // アイコンがあればアイコン、なければdisplayName
-            if (action == KeyAction.DoNothing) {
+            if (action is KeyAction.InputText) {
+                cellIconResId[pos] = null
+                cellLabels[pos] = action.text
+            } else if (action == KeyAction.DoNothing) {
                 cellIconResId[pos] = null
                 cellLabels[pos] = ""
             } else if (displayAction?.iconResId != null) {
