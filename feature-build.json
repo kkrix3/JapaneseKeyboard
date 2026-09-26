@@ -1,9 +1,9 @@
 {
-  "baseSha": "ad80fdb3aea38b9086d823cd6ead66c4523126ea",
+  "baseSha": "36e7f2cd61b587fe5466990afb24933d37fef11f",
   "featureRef": "feature/custom-special-flick-text-input",
   "featureSha": "c0366f70609a24dd85b21eed85dd698d19154310",
-  "infrastructureRef": "build/feature-apk-infrastructure-pr4-upstream",
-  "infrastructureSha": "384f009bbca30fcec9ffa9f626a8a8a69480b8f8",
+  "infrastructureRef": "build/feature-apk-v1.7.123-20260926",
+  "infrastructureSha": "d3290718127666db21376292cb247745b8235c55",
   "appTestFilters": [
     "*SpecialFlick*Test",
     "*KeyboardLayout*Test",
