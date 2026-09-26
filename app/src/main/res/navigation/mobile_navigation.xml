@@ -313,9 +313,6 @@
         android:name="com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui.KeyboardListFragment"
         android:label="@string/custom_layout_fragment_title">
         <action
-            android:id="@+id/action_select_keyboard_layouts"
-            app:destination="@id/keyboardSelectionFragment" />
-        <action
             android:id="@+id/action_keyboardListFragment_to_keyboardEditorFragment"
             app:destination="@id/keyboardEditorFragment" />
     </fragment>
@@ -372,6 +369,16 @@
         android:name="com.kazumaproject.markdownhelperkeyboard.setting_activity.ui.candidate_view_height_setting.CandidateViewHeightSettingFragment"
         android:label="@string/candidate_view_height_setting_fragment_title"
         tools:layout="@layout/fragment_candidate_view_height_setting" />
+    <fragment
+        android:id="@+id/candidateHeightDefaultsFragment"
+        android:name="com.kazumaproject.markdownhelperkeyboard.setting_activity.ui.candidate_view_height_setting.CandidateHeightDefaultsFragment"
+        android:label="@string/candidate_default_height_title"
+        tools:layout="@layout/fragment_candidate_height_defaults">
+        <argument
+            android:name="isLandscape"
+            android:defaultValue="false"
+            app:argType="boolean" />
+    </fragment>
     <fragment
         android:id="@+id/keyboardSizeLandscapeFragment"
         android:name="com.kazumaproject.markdownhelperkeyboard.setting_activity.ui.keyboard_size_landscape_setting.KeyboardSizeLandscapeFragment"

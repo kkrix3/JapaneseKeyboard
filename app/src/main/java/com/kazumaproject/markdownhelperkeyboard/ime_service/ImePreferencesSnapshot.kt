@@ -49,6 +49,7 @@ data class ImePreferencesSnapshot(
     val predictionConfig: PredictionConfig,
     val flickSensitivityPreferenceValue: Int,
     val flickThresholdShapePreferenceValue: String,
+    val tfbiDiagonalRecognitionModePreferenceValue: String,
     val longPressTimeoutPreferenceValue: Int,
     val qwertyShowIMEButtonPreference: Boolean,
     val qwertyShowEmojiButtonPreference: Boolean,
@@ -395,6 +396,8 @@ data class ImePreferencesSnapshot(
                 flickSensitivityPreferenceValue = appPreference.flick_sensitivity_preference ?: 100,
                 flickThresholdShapePreferenceValue =
                     appPreference.flick_threshold_shape_preference,
+                tfbiDiagonalRecognitionModePreferenceValue =
+                    appPreference.tfbi_diagonal_recognition_mode_preference.preferenceValue,
                 longPressTimeoutPreferenceValue =
                     appPreference.long_press_timeout_preference ?: 300,
                 qwertyShowIMEButtonPreference = appPreference.qwerty_show_ime_button ?: true,
@@ -548,9 +551,9 @@ data class ImePreferencesSnapshot(
                 tenkeyWidthPreferenceValue = appPreference.keyboard_width ?: 100,
                 qwertyHeightPreferenceValue = appPreference.qwerty_keyboard_height ?: 280,
                 qwertyWidthPreferenceValue = appPreference.qwerty_keyboard_width ?: 100,
-                candidateViewHeightPreferenceValue = appPreference.candidate_view_height_dp ?: 110,
+                candidateViewHeightPreferenceValue = appPreference.candidate_view_height_dp ?: 60,
                 candidateViewHeightEmptyPreferenceValue =
-                    appPreference.candidate_view_empty_height_dp ?: 110,
+                    appPreference.candidate_view_empty_height_dp ?: 60,
                 tenkeyPositionPreferenceValue = appPreference.keyboard_position ?: true,
                 tenkeyBottomMarginPreferenceValue =
                     appPreference.keyboard_vertical_margin_bottom ?: 0,
@@ -586,9 +589,9 @@ data class ImePreferencesSnapshot(
                 qwertyWidthLandscapePreferenceValue =
                     appPreference.qwerty_keyboard_width_landscape ?: 100,
                 candidateViewLandscapeHeightPreferenceValue =
-                    appPreference.candidate_view_height_dp_landscape ?: 110,
+                    appPreference.candidate_view_height_dp_landscape ?: 60,
                 candidateViewLandscapeHeightEmptyPreferenceValue =
-                    appPreference.candidate_view_empty_height_dp_landscape ?: 110,
+                    appPreference.candidate_view_empty_height_dp_landscape ?: 60,
                 tenkeyLandscapePositionPreferenceValue =
                     appPreference.keyboard_position_landscape ?: true,
                 tenkeyLandscapeBottomMarginPreferenceValue =
