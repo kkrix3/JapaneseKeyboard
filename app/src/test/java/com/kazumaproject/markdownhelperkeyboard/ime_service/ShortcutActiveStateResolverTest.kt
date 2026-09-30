@@ -28,21 +28,21 @@ class ShortcutActiveStateResolverTest {
     @Test
     fun vibrationStatePreservesOtherTogglesAndHasDistinctIcons() {
         for (smallTsuEnabled in listOf(false, true)) {
-        for (enabled in listOf(false, true)) {
-            val active = resolveShortcutActiveTypes(
-                keyboardLayoutEditActive = true,
-                keyboardFloatingActive = true,
-                inputBehavior = ResolvedInputBehavior.DIRECT_COMMIT,
-                liveConversionEnabled = true,
-                learningPaused = true,
-                handwritingActive = true,
-                smallTsuEnabled = smallTsuEnabled,
-                vibrationEnabled = enabled,
-            )
-            org.junit.Assert.assertEquals(enabled, ShortcutType.VIBRATION_TOGGLE in active)
-            assertEquals(smallTsuEnabled, ShortcutType.SMALL_TSU_TOGGLE in active)
-            assertEquals(6 + (if (enabled) 1 else 0) + (if (smallTsuEnabled) 1 else 0), active.size)
-        }
+            for (enabled in listOf(false, true)) {
+                val active = resolveShortcutActiveTypes(
+                    keyboardLayoutEditActive = true,
+                    keyboardFloatingActive = true,
+                    inputBehavior = ResolvedInputBehavior.DIRECT_COMMIT,
+                    liveConversionEnabled = true,
+                    learningPaused = true,
+                    handwritingActive = true,
+                    smallTsuEnabled = smallTsuEnabled,
+                    vibrationEnabled = enabled,
+                )
+                assertEquals(enabled, ShortcutType.VIBRATION_TOGGLE in active)
+                assertEquals(smallTsuEnabled, ShortcutType.SMALL_TSU_TOGGLE in active)
+                assertEquals(6 + (if (enabled) 1 else 0) + (if (smallTsuEnabled) 1 else 0), active.size)
+            }
         }
         assertNotNull(ShortcutType.VIBRATION_TOGGLE.activeIconResId)
         assertNotEquals(ShortcutType.VIBRATION_TOGGLE.iconResId, ShortcutType.VIBRATION_TOGGLE.activeIconResId)
