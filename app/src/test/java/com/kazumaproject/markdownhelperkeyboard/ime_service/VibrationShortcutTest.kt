@@ -154,6 +154,11 @@ class VibrationShortcutTest {
     @Test fun settingsChangesUseTheExistingRuntimePreferenceListenerToSyncCacheAndIcon() {
         val ime = Robolectric.buildService(IMEService::class.java).get()
         ime.appPreference = AppPreference
+        // This partial service fixture skips onCreate; Preview's small-tsu sync reads this store.
+        IMEService::class.java.getDeclaredField("runtimeInputSharedPreferences").apply {
+            isAccessible = true
+            set(ime, prefs)
+        }
         val adapter = ShortcutAdapter()
         adapter.submitList(listOf(ShortcutType.VIBRATION_TOGGLE))
         IMEService::class.java.getDeclaredField("shortcutAdapter").apply {
