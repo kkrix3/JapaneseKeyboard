@@ -1830,4 +1830,5 @@
     <string name="qwerty_romaji_space_flick_summary">Flick up to insert the opposite space width to your Romaji space setting. Independent of letter-key up flicks.</string>
     <string name="qwerty_english_space_flick_summary">Flick up to insert a full-width space. If there is composing text, commit it with a full-width space. Tapping still inserts a half-width space. Independent of letter-key up flicks.</string>
     <string name="floating_keyboard_hide">Hide keyboard</string>
+    <string name="shortcut_toolbar_summary_vibration_toggle">通常振動とカスタム振動の有効・無効を切り替えます。波形や振動方式の設定は保持されます。</string>
 </resources>

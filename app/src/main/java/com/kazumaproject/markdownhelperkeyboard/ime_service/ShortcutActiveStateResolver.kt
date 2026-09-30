@@ -11,6 +11,7 @@ internal fun resolveShortcutActiveTypes(
     learningPaused: Boolean = false,
     handwritingActive: Boolean = false,
     smallTsuEnabled: Boolean = false,
+    vibrationEnabled: Boolean = false,
 ): Set<ShortcutType> = buildSet {
     if (smallTsuEnabled) add(ShortcutType.SMALL_TSU_TOGGLE)
     if (keyboardLayoutEditActive) {
@@ -35,5 +36,9 @@ internal fun resolveShortcutActiveTypes(
 
     if (handwritingActive) {
         add(ShortcutType.GEMMA_HANDWRITING)
+    }
+
+    if (vibrationEnabled) {
+        add(ShortcutType.VIBRATION_TOGGLE)
     }
 }
