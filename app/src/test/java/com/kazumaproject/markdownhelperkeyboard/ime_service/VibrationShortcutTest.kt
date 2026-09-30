@@ -143,6 +143,39 @@ class VibrationShortcutTest {
         assertTrue(shadow.isVibrating)
     }
 
+    @Test fun settingsChangesUseTheExistingRuntimePreferenceListenerToSyncCacheAndIcon() {
+        val ime = Robolectric.buildService(IMEService::class.java).get()
+        ime.appPreference = AppPreference
+        val adapter = ShortcutAdapter()
+        adapter.submitList(listOf(ShortcutType.VIBRATION_TOGGLE))
+        IMEService::class.java.getDeclaredField("shortcutAdapter").apply {
+            isAccessible = true
+            set(ime, adapter)
+        }
+        val listener = IMEService::class.java.getDeclaredField("runtimeInputPreferenceListener").run {
+            isAccessible = true
+            get(ime) as android.content.SharedPreferences.OnSharedPreferenceChangeListener
+        }
+        val cache = IMEService::class.java.getDeclaredField("isVibration").apply {
+            isAccessible = true
+        }
+        val holder = adapter.onCreateViewHolder(FrameLayout(context), 0)
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        try {
+            for (enabled in listOf(false, true)) {
+                prefs.edit().putBoolean(AppPreference.VIBRATION_KEY, enabled).commit()
+                shadowOf(Looper.getMainLooper()).idle()
+                assertEquals(enabled, cache.get(ime))
+                adapter.onBindViewHolder(holder, 0)
+                val type = ShortcutType.VIBRATION_TOGGLE
+                val expected = if (enabled) type.activeIconResId else type.iconResId
+                assertEquals(expected, shadowOf(holder.imageView.drawable).createdFromResId)
+            }
+        } finally {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
+    }
+
     @Test fun independentAndIntegratedToolbarsUseTheTwoStateIcons() {
         val type = ShortcutType.VIBRATION_TOGGLE
         val adapter = ShortcutAdapter()
