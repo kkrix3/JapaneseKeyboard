@@ -10,6 +10,7 @@ internal fun resolveShortcutActiveTypes(
     liveConversionEnabled: Boolean,
     learningPaused: Boolean = false,
     handwritingActive: Boolean = false,
+    vibrationEnabled: Boolean = false,
 ): Set<ShortcutType> = buildSet {
     if (keyboardLayoutEditActive) {
         add(ShortcutType.KEYBOARD_LAYOUT_EDIT)
@@ -33,5 +34,9 @@ internal fun resolveShortcutActiveTypes(
 
     if (handwritingActive) {
         add(ShortcutType.GEMMA_HANDWRITING)
+    }
+
+    if (vibrationEnabled) {
+        add(ShortcutType.VIBRATION_TOGGLE)
     }
 }

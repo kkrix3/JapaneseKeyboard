@@ -1733,6 +1733,12 @@ object AppPreference {
             it.putBoolean(VIBRATION_PREFERENCE.first, value ?: true)
         }
 
+    internal fun toggleVibrationEnabled(): Boolean {
+        val enabled = !(vibration_preference ?: true)
+        vibration_preference = enabled
+        return enabled
+    }
+
     var ng_word_preference: Boolean?
         get() = preferences.getBoolean(
             NG_WORD_ENABLE_PREFERENCE.first, NG_WORD_ENABLE_PREFERENCE.second

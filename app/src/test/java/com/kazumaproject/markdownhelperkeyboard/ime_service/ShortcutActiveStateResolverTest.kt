@@ -13,6 +13,27 @@ import org.mockito.kotlin.mock
 
 class ShortcutActiveStateResolverTest {
     @Test
+    fun vibrationStatePreservesOtherTogglesAndHasDistinctIcons() {
+        for (enabled in listOf(false, true)) {
+            val active = resolveShortcutActiveTypes(
+                keyboardLayoutEditActive = true,
+                keyboardFloatingActive = true,
+                inputBehavior = ResolvedInputBehavior.DIRECT_COMMIT,
+                liveConversionEnabled = true,
+                learningPaused = true,
+                handwritingActive = true,
+                vibrationEnabled = enabled,
+            )
+            org.junit.Assert.assertEquals(enabled, ShortcutType.VIBRATION_TOGGLE in active)
+            org.junit.Assert.assertEquals(if (enabled) 7 else 6, active.size)
+        }
+        assertNotNull(ShortcutType.VIBRATION_TOGGLE.activeIconResId)
+        assertNotEquals(ShortcutType.VIBRATION_TOGGLE.iconResId, ShortcutType.VIBRATION_TOGGLE.activeIconResId)
+        assertTrue(ShortcutType.fromId("vibration_toggle") == ShortcutType.VIBRATION_TOGGLE)
+        assertFalse(ShortcutType.VIBRATION_TOGGLE in ShortcutRepository(mock<ShortcutDao>()).defaultShortcuts)
+    }
+
+    @Test
     fun handwritingShortcutIsActiveWhileSurfaceIsShown() {
         val active = resolveShortcutActiveTypes(
             keyboardLayoutEditActive = false,
