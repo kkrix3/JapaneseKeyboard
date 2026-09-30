@@ -1,0 +1,58 @@
+name: Vibration Shortcut Verification
+on:
+  push:
+    branches: ['verify/custom-haptics-vibration-shortcut']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      ZENZ_DEBUG_NATIVE_ABIS: x86_64
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK dependencies
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-vibration-shortcut-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle-
+      - name: Custom keyboard regression tests
+        run: bash ./gradlew :custom_keyboard:testDebugUnitTest --no-daemon --console=plain --max-workers=2
+      - name: Full app vibration, toolbar and backup regression tests
+        run: >-
+          bash ./gradlew :app:testFullStandardDebugUnitTest
+          --tests '*VibrationShortcutTest'
+          --tests '*ShortcutActiveStateResolverTest'
+          --tests '*ShortcutRepositoryVibrationTest'
+          --tests '*ShortcutAdapterThemeColorTest'
+          --tests '*SuggestionAdapterShortcutEntryClickTest'
+          --tests '*ShortcutToolbarPresentationPolicyTest'
+          --tests '*CustomHapticBackupCompatibilityTest'
+          --tests '*CustomHapticSettingsEntryPointTest'
+          --tests '*VibrationTimingPolicyTest'
+          -x :zenz:prepareZenzModel
+          --no-daemon --console=plain --max-workers=2
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vibration-shortcut-test-reports
+          path: |
+            app/build/test-results/
+            app/build/reports/tests/
+            custom_keyboard/build/test-results/
+            custom_keyboard/build/reports/tests/
+          retention-days: 14
