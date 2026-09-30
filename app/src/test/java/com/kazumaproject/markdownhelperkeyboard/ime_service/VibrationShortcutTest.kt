@@ -2,6 +2,7 @@ package com.kazumaproject.markdownhelperkeyboard.ime_service
 
 import android.app.Application
 import android.content.Context
+import android.os.CombinedVibration
 import android.os.Looper
 import android.os.VibratorManager
 import android.widget.FrameLayout
@@ -16,6 +17,10 @@ import com.kazumaproject.markdownhelperkeyboard.ime_service.input_behavior.Resol
 import com.kazumaproject.markdownhelperkeyboard.setting_activity.AppPreference
 import com.kazumaproject.markdownhelperkeyboard.short_cut.ShortcutType
 import org.junit.Assert.*
+import org.mockito.kotlin.any
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -126,21 +131,57 @@ class VibrationShortcutTest {
         val vibrate = IMEService::class.java.getDeclaredMethod("vibrate").apply {
             isAccessible = true
         }
-        val vibrator = ime.getSystemService(VibratorManager::class.java).defaultVibrator
-        val shadow = shadowOf(vibrator)
-        shadow.setHasVibrator(true)
+        // Verify the platform call directly: Robolectric does not shadow VibratorManager playback.
+        val manager = mock<VibratorManager>()
+        IMEService::class.java.getDeclaredField("vibratorManager\$delegate").apply {
+            isAccessible = true
+            set(ime, lazyOf(manager))
+        }
         AppPreference.vibration_preference = true
         toggle.invoke(ime)
         assertEquals(false, vibration.get(ime))
-        assertFalse(shadow.isVibrating)
+        verifyNoInteractions(manager)
         vibrate.invoke(ime)
-        assertFalse(shadow.isVibrating)
+        verifyNoInteractions(manager)
         toggle.invoke(ime)
         assertEquals(true, vibration.get(ime))
-        assertFalse(shadow.isVibrating)
+        verifyNoInteractions(manager)
         // The existing normal vibration path resumes after enabling.
         vibrate.invoke(ime)
-        assertTrue(shadow.isVibrating)
+        verify(manager).vibrate(any<CombinedVibration>())
+    }
+
+    @Test fun settingsChangesUseTheExistingRuntimePreferenceListenerToSyncCacheAndIcon() {
+        val ime = Robolectric.buildService(IMEService::class.java).get()
+        ime.appPreference = AppPreference
+        val adapter = ShortcutAdapter()
+        adapter.submitList(listOf(ShortcutType.VIBRATION_TOGGLE))
+        IMEService::class.java.getDeclaredField("shortcutAdapter").apply {
+            isAccessible = true
+            set(ime, adapter)
+        }
+        val listener = IMEService::class.java.getDeclaredField("runtimeInputPreferenceListener").run {
+            isAccessible = true
+            get(ime) as android.content.SharedPreferences.OnSharedPreferenceChangeListener
+        }
+        val cache = IMEService::class.java.getDeclaredField("isVibration").apply {
+            isAccessible = true
+        }
+        val holder = adapter.onCreateViewHolder(FrameLayout(context), 0)
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        try {
+            for (enabled in listOf(false, true)) {
+                prefs.edit().putBoolean(AppPreference.VIBRATION_KEY, enabled).commit()
+                shadowOf(Looper.getMainLooper()).idle()
+                assertEquals(enabled, cache.get(ime))
+                adapter.onBindViewHolder(holder, 0)
+                val type = ShortcutType.VIBRATION_TOGGLE
+                val expected = if (enabled) type.activeIconResId else type.iconResId
+                assertEquals(expected, shadowOf(holder.imageView.drawable).createdFromResId)
+            }
+        } finally {
+            prefs.unregisterOnSharedPreferenceChangeListener(listener)
+        }
     }
 
     @Test fun independentAndIntegratedToolbarsUseTheTwoStateIcons() {
