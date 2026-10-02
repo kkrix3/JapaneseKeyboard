@@ -4,6 +4,19 @@
     android:tint="@color/keyboard_icon_color"
     android:viewportWidth="24"
     android:viewportHeight="24">
+    <group>
+        <!-- Keep the ON outline, cutting only a diagonal strip around the slash.
+             Clipping keeps the cut faces sharp while retaining rounded outer corners. -->
+        <clip-path android:pathData="M2.05,0H24V21.95Z M0,2.05L21.95,24H0Z" />
+        <path
+            android:fillColor="@color/keyboard_icon_color"
+            android:fillAlpha="0"
+            android:strokeColor="@color/keyboard_icon_color"
+            android:strokeWidth="1.7"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:pathData="M8,4H16V20H8Z M4.5,7V17 M1.5,9V15 M19.5,7V17 M22.5,9V15" />
+    </group>
     <path
         android:fillColor="@color/keyboard_icon_color"
         android:fillAlpha="0"
@@ -11,5 +24,5 @@
         android:strokeWidth="1.7"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M10,4H16V10 M8,10V20H16V16 M4.5,10V17 M1.5,9V15 M19.5,7V14 M22.5,9V15 M3,3L21,21" />
+        android:pathData="M3,3L21,21" />
 </vector>

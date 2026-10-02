@@ -1828,5 +1828,5 @@
     <string name="qwerty_romaji_space_flick_summary">上フリックで、既存のローマ字のスペース設定と反対の幅（半角・全角）の空白を入力します。文字キーの上フリック設定とは独立しています。</string>
     <string name="qwerty_english_space_flick_summary">上フリックで全角スペースを入力します。未確定文字がある場合は確定して全角スペースを挿入します。タップは半角スペースのままです。文字キーの上フリック設定とは独立しています。</string>
     <string name="floating_keyboard_hide">キーボードを非表示</string>
-    <string name="shortcut_toolbar_summary_vibration_toggle">通常振動とカスタム振動の有効・無効を切り替えます。波形や振動方式の設定は保持されます。</string>
+    <string name="shortcut_toolbar_summary_vibration_toggle">バイブレーションの有無を切り替えます。</string>
 </resources>
