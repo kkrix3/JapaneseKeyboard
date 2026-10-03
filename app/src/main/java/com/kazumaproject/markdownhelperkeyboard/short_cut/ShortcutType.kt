@@ -85,6 +85,12 @@ enum class ShortcutType(
         activeIconResId = com.kazumaproject.core.R.drawable.incognito,
         description = "学習を一時停止"
     ),
+    VIBRATION_TOGGLE(
+        "vibration_toggle",
+        com.kazumaproject.core.R.drawable.vibration_off_24px,
+        activeIconResId = com.kazumaproject.core.R.drawable.vibration_24px,
+        description = "バイブレーション切替"
+    ),
     SELECT_ALL(
         "select_all",
         com.kazumaproject.core.R.drawable.text_select_start_24dp,

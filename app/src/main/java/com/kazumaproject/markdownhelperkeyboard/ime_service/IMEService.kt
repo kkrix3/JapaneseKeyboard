@@ -3657,6 +3657,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             customLayoutFloating.setTfbiPopupPresentationMode(tfbiPopupPresentationMode)
             customLayoutFloating.setTfbiFlickStartPositionMode(tfbiFlickStartPositionMode)
         }
+        updateShortcutActiveStates()
     }
 
     private fun applyImePreferences(savedPreferences: ImePreferencesSnapshot) {
@@ -22019,6 +22020,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             learningPaused = learningPausedForSession,
             handwritingActive = handwritingModeActive,
             smallTsuEnabled = smallTsuSettings.enabled,
+            vibrationEnabled = appPreference.vibration_preference ?: true,
         ) + dictionaryFloats?.activeShortcuts.orEmpty()
 
         shortcutAdapter?.setActiveShortcutTypes(activeTypes)
@@ -22053,6 +22055,11 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         }
         updateShortcutActiveStates()
         refreshCandidateStripContent()
+    }
+
+    private fun toggleVibrationFromShortcut() {
+        isVibration = appPreference.toggleVibrationEnabled()
+        updateShortcutActiveStates()
     }
 
     private fun toggleLearningPauseFromShortcut() {
@@ -22659,6 +22666,10 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
             ShortcutType.LEARNING_PAUSE -> {
                 toggleLearningPauseFromShortcut()
+            }
+
+            ShortcutType.VIBRATION_TOGGLE -> {
+                toggleVibrationFromShortcut()
             }
 
             ShortcutType.SELECT_ALL -> {

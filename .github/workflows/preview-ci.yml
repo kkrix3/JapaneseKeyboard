@@ -65,6 +65,12 @@ jobs:
           bash ./gradlew :app:testFullStandardDebugUnitTest \
             --tests '*SmallTsu*' \
             --tests '*VibrationTimingPolicyTest' \
+            --tests '*VibrationShortcutTest' \
+            --tests '*ShortcutActiveStateResolverTest' \
+            --tests '*ShortcutRepositoryVibrationTest' \
+            --tests '*ShortcutAdapterThemeColorTest' \
+            --tests '*SuggestionAdapterShortcutEntryClickTest' \
+            --tests '*ShortcutToolbarPresentationPolicyTest' \
             --tests '*CustomHapticSettingsEntryPointTest' \
             --tests '*CustomHapticBackupCompatibilityTest' \
             --tests '*KeyboardLayout*Test' \
