@@ -5,9 +5,10 @@
     android:viewportWidth="24"
     android:viewportHeight="24">
     <group>
-        <!-- Keep the ON outline, cutting only a diagonal strip around the slash.
-             Clipping keeps the cut faces sharp while retaining rounded outer corners. -->
-        <clip-path android:pathData="M2.05,0H24V21.95Z M0,2.05L21.95,24H0Z" />
+        <!-- Preserve the ON outline; lower-left joins the slash and upper-right has a
+             stroke-width gap. In the 24-unit viewport, move the slash right 0.24 (1%)
+             and up 0.48 (2%); shorten its upper-left end by 0.12 (0.5%) along the slash. -->
+        <clip-path android:pathData="M4.326245,0.000000L24.000000,0.000000L24.000000,19.673755Z M0.000000,0.000000L0.720000,0.000000L24.000000,23.280000L24.000000,24.000000L0.000000,24.000000Z" />
         <path
             android:fillColor="@color/keyboard_icon_color"
             android:fillAlpha="0"
@@ -24,5 +25,5 @@
         android:strokeWidth="1.7"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M3,3L21,21" />
+        android:pathData="M3.324853,2.604853L21.24,20.52" />
 </vector>
