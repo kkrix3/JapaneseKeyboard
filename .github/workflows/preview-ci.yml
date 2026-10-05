@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: sumire-preview-${{ github.event_name == 'pull_request' && github.event.number || (github.ref == 'refs/heads/preview' && 'trusted' || github.ref) }}
+  group: sumire-preview-${{ github.event_name == 'pull_request' && github.event.number || github.ref }}
   cancel-in-progress: false
 
 jobs:

@@ -21,8 +21,11 @@ Full build and device evidence is recorded by `Sumire Full Preview CI` for its e
 - API 35 instrumentation covers generated Sumire layouts at both sizes/window positions
   and QWERTY. Initialize UiAutomation before window launch and wait for accessibility
   idle; focus alone can precede Android's ActivityRecordInputSink transition.
-- Local Full model download is blocked by the cloud network (Hugging Face HTTP 403).
-  Full CI builds from the pinned model/submodule; Lite success is not Full evidence.
+- Direct local model download is blocked by the cloud network (Hugging Face HTTP 403).
+  Local Full validation uses the model bundled in the official v1.7.128 APK, after
+  verifying GitHub's release APK SHA-256. The model SHA-256 is
+  `00c64b3d318045a708d0cad5434faccab10f5481a49e6362864551fd0995fa58`.
+  Full CI independently downloads the pinned model; Lite success is not Full evidence.
 - Physical vibration feel, OEM behavior, signed update/data retention, and actual-device
   IME use remain separate checks; emulator View tests do not establish these outcomes.
 
