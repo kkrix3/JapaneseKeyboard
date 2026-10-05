@@ -20,6 +20,9 @@ class SumireIndependentMultiTouchTestActivity : SumireNearestKeyTestActivity()
 class SumireIndependentMultiTouchInstrumentedTest {
     @Test fun generatedSumireLayoutCommitsInReleaseOrderAtBothSizesAndWindowPositions() {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
+        // Connect accessibility before launching the window. Connecting on first injection
+        // can race ActivityRecordInputSink even after hasWindowFocus() becomes true.
+        val automation = instrumentation.uiAutomation
         val activity = instrumentation.startActivitySync(Intent(instrumentation.context,
             SumireIndependentMultiTouchTestActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) as SumireIndependentMultiTouchTestActivity
         try {
@@ -40,6 +43,8 @@ class SumireIndependentMultiTouchInstrumentedTest {
                     if (!ready) SystemClock.sleep(25)
                 }
                 assertTrue("Test window must be focused and laid out", ready)
+                automation.waitForIdle(500, 5000)
+                instrumentation.waitForIdleSync()
                 lateinit var a: Rect
                 lateinit var ka: Rect
                 instrumentation.runOnMainSync {
@@ -57,7 +62,7 @@ class SumireIndependentMultiTouchInstrumentedTest {
                     val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(),
                         action or (index shl MotionEvent.ACTION_POINTER_INDEX_SHIFT), ids.size,
                         properties, coordinates, 0, 0, 1f, 1f, 0, 0, InputDevice.SOURCE_TOUCHSCREEN, 0)
-                    try { assertTrue(instrumentation.uiAutomation.injectInputEvent(event, true)) }
+                    try { assertTrue(automation.injectInputEvent(event, true)) }
                     finally { event.recycle() }
                     instrumentation.waitForIdleSync()
                 }

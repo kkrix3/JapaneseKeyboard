@@ -158,9 +158,7 @@ jobs:
           target: google_apis
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: |
-            bash ./gradlew :custom_keyboard:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.kazumaproject.custom_keyboard.view.SumireIndependentMultiTouchInstrumentedTest --no-daemon --console=plain --max-workers=2
-            bash ./gradlew :qwerty_keyboard:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.kazumaproject.qwerty_keyboard.ui.QwertyMultiTouchInstrumentedTest --no-daemon --console=plain --max-workers=2
+          script: bash .github/scripts/run-multi-pointer-regression.sh
       - name: Upload device input reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

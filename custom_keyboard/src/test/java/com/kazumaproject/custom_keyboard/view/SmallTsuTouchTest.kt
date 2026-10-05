@@ -26,6 +26,8 @@ class SmallTsuTouchTest {
         var releases = 0
         val legacyFlickFlags = mutableListOf<Boolean>()
         val hapticContexts = mutableListOf<InputHapticContext>()
+        val played = mutableListOf<com.kazumaproject.custom_keyboard.haptics.HapticPatternKind>()
+        val haptics = com.kazumaproject.custom_keyboard.haptics.CommittedInputHaptics { played += it }
         val owner = Any()
         val session = SmallTsuSession()
         val settings = SmallTsuSettings(enabled=true)
@@ -62,7 +64,7 @@ class SmallTsuTouchTest {
                     hapticContext: InputHapticContext
                 ) {
                     hapticContexts += hapticContext
-                    onAction(action, isFlick)
+                    haptics.dispatch(action, hapticContext) { onAction(action, isFlick); true }
                 }
                 override fun onActionLongPress(action:KeyAction){session.cancel()}
                 override fun onActionUpAfterLongPress(action:KeyAction){}
@@ -166,7 +168,7 @@ class SmallTsuTouchTest {
             val first = source.keys.single()
             val h = Harness(layout = KeyboardLayout(
                 keys = listOf(first, first.copy(keyId = "other", column = 1, label = "た", action = KeyAction.Text("た"))),
-                flickKeyMaps = source.flickKeyMaps + ("other" to source.flickKeyMaps.values.first()),
+                flickKeyMaps = source.flickKeyMaps + ("other" to listOf(mapOf(FlickDirection.TAP to FlickAction.Input("た")))),
                 columnCount = 2, rowCount = 1))
             h.view.setIndependentMultiTouchEnabled(enabled)
             h.tap(100)
@@ -185,8 +187,10 @@ class SmallTsuTouchTest {
             send(MotionEvent.ACTION_POINTER_UP, if (newerFirst) 1 else 0, listOf(3, 19), 220)
             send(MotionEvent.ACTION_UP, 0, listOf(if (newerFirst) 3 else 19), 230)
             assertFalse("enabled=$enabled newerFirst=$newerFirst", h.reading.contains("っ"))
+            assertEquals(if (enabled && newerFirst) "さたさ" else "ささた", h.reading)
             assertEquals(3, h.releases)
             assertEquals(3, h.hapticContexts.size)
+            assertEquals(3, h.played.size)
             h.tap(240)
             assertFalse("multitouch must not arm the next pair", h.reading.contains("っ"))
             h.tap(280)
