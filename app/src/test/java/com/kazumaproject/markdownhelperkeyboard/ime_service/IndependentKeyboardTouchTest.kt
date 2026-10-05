@@ -79,6 +79,11 @@ class IndependentKeyboardTouchTest {
             assertEquals("multi-finger commits bypass small tsu", 1, eligibleTexts)
             assertTrue(cancels > 0)
             assertEquals(3, k.committed.size)
+            send(k, MotionEvent.ACTION_DOWN, 0, a)
+            val cancelsBeforeHold = cancels
+            shadowOf(Looper.getMainLooper()).idleFor(1001, TimeUnit.MILLISECONDS)
+            assertTrue("holding a single finger must cancel small tsu enabled=$enabled", cancels > cancelsBeforeHold)
+            send(k, MotionEvent.ACTION_CANCEL, 0, a)
         }
     }
 

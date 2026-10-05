@@ -170,6 +170,7 @@ class TenKey(context: Context, attributeSet: AttributeSet) :
             },
             onLongPress = { session ->
                 withIndependentSession(session) {
+                    kanaGestureObserver?.cancel()
                     longPressListener?.onLongPress(pressedKey.key)
                     if (independentTouches.contains(session)) onLongPressed()
                 }

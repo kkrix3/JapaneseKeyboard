@@ -1,15 +1,37 @@
 # Sumire development fork
 
-Status: feature and Preview branches published. Full Debug and unsigned Full Preview builds,
-custom_keyboard tests and selected Full app regressions passed in CI run 35032069860.
-Signing and physical-device validation are pending; see STATUS-ja.md and SIGNING.md.
+Status: Preview integrates the complete upstream stable release v1.7.128 while retaining
+custom haptics, the vibration toggle shortcut, double-tap small-tsu and Preview identity.
+The merge preserves published ancestry; PR #4 (custom special-flick text) is excluded.
+Full build and device evidence is recorded by `Sumire Full Preview CI` for its exact SHA.
+
+## v1.7.128 integration checks
+
+- Release/dev baseline: `be9cccd7e6fef176667a12eb66fa6fe64380c9db` (1.7.128, code 821).
+- Previous Preview: `6f1ba3be2c301dc0e74a65e73916600339eea8c8`; ordinary merge,
+  with no rebase or force push. Unrelated feature branches remain unchanged.
+- Resolve IME lifecycle and selection conflicts by retaining both upstream popup/cursor
+  handling and small-tsu invalidation. Use upstream mode-switch synchronization while
+  retaining the committed-input haptic acknowledgement contract (including new Cut).
+- Observe raw pointer events before independent routing: single-finger small-tsu still
+  works; a second finger, cancellation or hold invalidates its candidate. TenKey's
+  independent long-press timer must invalidate it just like the legacy timer.
+- Regression tests cover both multi-touch settings, release order, one haptic dispatch
+  per committed input, resumption of single-finger pairs, and long-press invalidation.
+- API 35 instrumentation covers generated Sumire layouts at both sizes/window positions
+  and QWERTY. Initialize UiAutomation before window launch and wait for accessibility
+  idle; focus alone can precede Android's ActivityRecordInputSink transition.
+- Local Full model download is blocked by the cloud network (Hugging Face HTTP 403).
+  Full CI builds from the pinned model/submodule; Lite success is not Full evidence.
+- Physical vibration feel, OEM behavior, signed update/data retention, and actual-device
+  IME use remain separate checks; emulator View tests do not establish these outcomes.
 
 ## Repositories and branches
 
 - origin: https://github.com/kkrix3/JapaneseKeyboard.git (formal public fork)
 - upstream: https://github.com/KazumaProject/JapaneseKeyboard.git
 - PoC, read only: https://github.com/kkrix3/sumire-haptics
-- Reviewed upstream baseline: `a47715a453cee3ecb40e9757ffbd7d4790ce7ae9` (1.7.115, code 808).
+- Current stable upstream baseline: `be9cccd7e6fef176667a12eb66fa6fe64380c9db` (1.7.128, code 821).
 - PoC source: `fde1890dbd0c17322cf8f063e2557cd4ef7c68de`, feature/custom-haptics.
 
 | Branch | Role |
@@ -54,7 +76,7 @@ be resolved on preview unless the fix intrinsically belongs to a feature. Record
 
 | Purpose | Task | Application ID | Artifact |
 | --- | --- | --- | --- |
-| Feature validation | :app:assembleFullStandardDebug | com.kazumaproject.markdownhelperkeyboard | sumire-feature-full-debug |
+| Release/dev validation | :app:assembleFullStandardDebug | com.kazumaproject.markdownhelperkeyboard | sumire-dev-full-debug |
 | Daily Preview input | :app:assembleFullStandardPreview -PpreviewVersionCode=N | com.kazumaproject.markdownhelperkeyboard.preview | sumire-preview-full-unsigned |
 | Daily installable APK | isolated apksigner job after tests | same Preview ID | sumire-preview-full-signed |
 
