@@ -51,6 +51,17 @@ class SumireIndependentMultiTouchInstrumentedTest {
                     a = activity.keyBounds("あ")
                     ka = activity.keyBounds("か")
                 }
+                val metrics = activity.resources.displayMetrics
+                println("SUMIRE_POINTER_BOUNDS screen=${metrics.widthPixels}x${metrics.heightPixels} a=$a ka=$ka")
+                automation.takeScreenshot()?.let { bitmap ->
+                    val file = java.io.File(instrumentation.context.getExternalFilesDir(null),
+                        "sumire-multitouch-$scale-$floating-$enabled.png")
+                    file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+                    bitmap.recycle()
+                }
+                assertTrue("Keys must lie inside the display: a=$a ka=$ka", listOf(a, ka).all {
+                    it.left >= 0 && it.top >= 0 && it.right <= metrics.widthPixels && it.bottom <= metrics.heightPixels
+                })
                 val downTime = SystemClock.uptimeMillis()
                 fun send(action: Int, index: Int, ids: IntArray, bounds: List<Rect>) {
                     val properties = Array(ids.size) { i -> MotionEvent.PointerProperties().apply {
