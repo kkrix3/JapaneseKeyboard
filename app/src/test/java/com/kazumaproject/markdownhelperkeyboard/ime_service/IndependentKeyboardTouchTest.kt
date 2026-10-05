@@ -67,7 +67,7 @@ class IndependentKeyboardTouchTest {
                     eligibleTexts++; dispatch()
                 }
             }
-            val a = pointer(3, k.keys[0]); val b = pointer(19, k.keys[1])
+            val a = pointer(0, k.keys[0]); val b = pointer(1, k.keys[1])
             send(k, MotionEvent.ACTION_DOWN, 0, a)
             send(k, MotionEvent.ACTION_UP, 0, a)
             assertEquals("single finger still eligible enabled=$enabled", 1, eligibleTexts)

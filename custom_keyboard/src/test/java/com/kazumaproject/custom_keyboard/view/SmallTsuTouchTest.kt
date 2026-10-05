@@ -164,10 +164,10 @@ class SmallTsuTouchTest {
         for (enabled in listOf(false, true)) for (newerFirst in listOf(false, true)) {
             val source = singleSa("sumire")
             val first = source.keys.single()
-            val h = Harness(layout = source.copy(
+            val h = Harness(layout = KeyboardLayout(
                 keys = listOf(first, first.copy(keyId = "other", column = 1, label = "た", action = KeyAction.Text("た"))),
                 flickKeyMaps = source.flickKeyMaps + ("other" to source.flickKeyMaps.values.first()),
-                columnCount = 2))
+                columnCount = 2, rowCount = 1))
             h.view.setIndependentMultiTouchEnabled(enabled)
             h.tap(100)
             fun send(action: Int, index: Int, ids: List<Int>, time: Long) {
