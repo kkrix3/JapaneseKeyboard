@@ -150,6 +150,50 @@ class SmallTsuTouchTest {
         assertEquals(2,h.releases)
         assertEquals(listOf(false,true),h.hapticContexts.map { it.isTwoStepFlick })
     }
+    @Test fun independentModeKeepsSingleFingerSmallTsuAcrossBuiltInKanaSurfaces() {
+        for (style in listOf("default", "circle", "sumire", "second-flick", "third-flick", "center-guide-flick")) {
+            val h = Harness(layout = singleSa(style))
+            h.view.setIndependentMultiTouchEnabled(true)
+            h.tap(100); h.tap(200)
+            assertEquals(style, "っさ", h.reading)
+            assertEquals(style, 2, h.hapticContexts.size)
+        }
+    }
+
+    @Test fun secondFingerCancelsSmallTsuWithoutLosingReleaseOrderOrHapticCommits() {
+        for (enabled in listOf(false, true)) for (newerFirst in listOf(false, true)) {
+            val source = singleSa("sumire")
+            val first = source.keys.single()
+            val h = Harness(layout = source.copy(
+                keys = listOf(first, first.copy(keyId = "other", column = 1, label = "た", action = KeyAction.Text("た"))),
+                flickKeyMaps = source.flickKeyMaps + ("other" to source.flickKeyMaps.values.first()),
+                columnCount = 2))
+            h.view.setIndependentMultiTouchEnabled(enabled)
+            h.tap(100)
+            fun send(action: Int, index: Int, ids: List<Int>, time: Long) {
+                val props = ids.map { id -> MotionEvent.PointerProperties().apply { this.id = id; toolType = MotionEvent.TOOL_TYPE_FINGER } }.toTypedArray()
+                val coords = ids.map { id ->
+                    val key = h.view.getChildAt(if (id == 3) 0 else 1)
+                    MotionEvent.PointerCoords().apply { x = key.left + key.width / 2f; y = key.top + key.height / 2f; pressure = 1f; size = 1f }
+                }.toTypedArray()
+                val event = MotionEvent.obtain(200, time, action or (index shl MotionEvent.ACTION_POINTER_INDEX_SHIFT),
+                    ids.size, props, coords, 0, 0, 1f, 1f, 0, 0, android.view.InputDevice.SOURCE_TOUCHSCREEN, 0)
+                h.view.onTouchEvent(event); event.recycle()
+            }
+            send(MotionEvent.ACTION_DOWN, 0, listOf(3), 200)
+            send(MotionEvent.ACTION_POINTER_DOWN, 1, listOf(3, 19), 210)
+            send(MotionEvent.ACTION_POINTER_UP, if (newerFirst) 1 else 0, listOf(3, 19), 220)
+            send(MotionEvent.ACTION_UP, 0, listOf(if (newerFirst) 3 else 19), 230)
+            assertFalse("enabled=$enabled newerFirst=$newerFirst", h.reading.contains("っ"))
+            assertEquals(3, h.releases)
+            assertEquals(3, h.hapticContexts.size)
+            h.tap(240)
+            assertFalse("multitouch must not arm the next pair", h.reading.contains("っ"))
+            h.tap(280)
+            assertTrue("single-finger pairing resumes", h.reading.contains("っ"))
+        }
+    }
+
     private fun singleSa(style:String):KeyboardLayout {
         val source=KeyboardDefaultLayouts.createFinalLayout(KeyboardInputMode.HIRAGANA,
             emptyMap(),"flick",style)

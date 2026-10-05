@@ -81,6 +81,7 @@ class FlickLongPressInputController(
         isLongPressActive = true
         listener?.onHold()
         updatePopupCharacters()
+        popupView?.setPresentationMode(TfbiFlickPopupView.PresentationMode.LONG_PRESS)
         popupView?.highlightDirection(direction)
     }
 
@@ -166,6 +167,7 @@ class FlickLongPressInputController(
 
         currentDirection = nextDirection
         isLongPressActive = false
+        popupView?.setPresentationMode(TfbiFlickPopupView.PresentationMode.FLICK)
         scheduleLongPressIfNeeded(nextDirection)
         updatePopupCharacters()
         popupView?.highlightDirection(nextDirection ?: TfbiFlickDirection.TAP)

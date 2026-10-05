@@ -74,13 +74,14 @@ The only active Preview workflow is `.github/workflows/preview-ci.yml`:
 `.github/upstream-workflows`, so upstream tag-release/sync jobs do not run for Preview.
 Dev and feature retain upstream files unchanged. No Release or upstream PR is created.
 
-On a Preview push or PR, the feature and integration variants are tested without secrets:
+On a Preview push or PR (and the v1.7.128 integration branch), the release dev and integration variants are tested without secrets:
 custom_keyboard suite, selected Full app regression/backup tests, Full Debug and unsigned
 Full Preview. SHA-pinned checkout/setup-java/upload/download actions use contents:read;
 checkout does not persist credentials. Failures do not prevent uploading test reports.
-Feature checkout is resolved by checkout to a specific commit and recorded in checkout logs.
-Feature changes trigger this CI when integrated into Preview (or via manual run); the clean
-feature branch does not contain the fork's pipeline.
+The dev validation job is pinned to release v1.7.128 (`be9cccd7e6fef176667a12eb66fa6fe64380c9db`); Preview checks out the triggering SHA. Both record the actual checkout SHA.
+The old `feature/custom-haptics` head is not used as evidence for updated dev/preview.
+A separate API 35 emulator job runs Sumire and QWERTY multi-pointer instrumentation.
+Signing requires both build verification and device-input jobs to succeed.
 
 For manual signed runs, make `preview` the fork's GitHub default branch after publication.
 This does not change dev or its upstream-tracking role. GitHub requires workflow_dispatch
