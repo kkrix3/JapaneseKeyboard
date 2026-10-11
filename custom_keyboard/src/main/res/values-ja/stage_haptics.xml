@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_stage_enabled">フリック段階振動（実験機能）</string>
+    <string name="haptic_stage_enabled_summary">指の移動中にフリックの進行・後退を振動で伝えます。既存の押下・リリース振動と共存します。</string>
+    <string name="haptic_stage_suppression">オシレーション抑制</string>
+    <string name="haptic_stage_suppression_summary">同じ選択境界の短時間往復による振動を抑えます。文字の選択には影響しません。</string>
+    <string name="haptic_stage_suppression_ms">オシレーション抑制時間（ms）</string>
+    <string name="haptic_stage_change_mode">方向変更時の再生モード</string>
+    <string name="haptic_stage_delay_ms">アプリ側の時間差（ms）</string>
+    <string name="haptic_stage_delay_summary">後退・進行の再生命令の開始時刻の差です。アプリ側モードのみで使用します。</string>
+    <string name="haptic_stage_advance">段階進行の波形</string>
+    <string name="haptic_stage_retreat">段階後退の波形</string>
+    <string name="haptic_stage_change">方向変更の複合波形</string>
+    <string name="haptic_stage_change_summary">複合波形モード用の独立波形です。間隔もここで編集します。アプリ側の時間差とは連動しません。</string>
+    <string-array name="haptic_stage_change_modes">
+        <item>ON（アプリ側の時間差）</item>
+        <item>ON（独立した複合波形）</item>
+        <item>OFF（時間差なし）</item>
+    </string-array>
+</resources>

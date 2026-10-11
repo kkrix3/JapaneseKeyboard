@@ -61,12 +61,26 @@ class CustomHapticBackupCompatibilityTest {
         prefs.savePattern(HapticPatternKind.SPECIAL_KEY, raw)
         prefs.savePattern(HapticPatternKind.NORMAL_FLICK, HapticPattern(emptyList()))
         prefs.setMediaUsage(true)
+        for (kind in listOf(HapticPatternKind.STAGE_ADVANCE, HapticPatternKind.STAGE_RETREAT, HapticPatternKind.STAGE_CHANGE)) {
+            prefs.savePattern(kind, raw)
+        }
+        PreferenceManager.getDefaultSharedPreferences(context).edit()
+            .putBoolean(CustomHapticPreferences.KEY_STAGE_ENABLED, true)
+            .putBoolean(CustomHapticPreferences.KEY_STAGE_SUPPRESSION, false)
+            .putInt(CustomHapticPreferences.KEY_STAGE_SUPPRESSION_MS, 65)
+            .putString(CustomHapticPreferences.KEY_STAGE_CHANGE_MODE, "composite")
+            .putInt(CustomHapticPreferences.KEY_STAGE_DELAY_MS, 45).commit()
         val json = AppPreference.exportAllToJson()
         PreferenceManager.getDefaultSharedPreferences(context).edit().clear().commit()
         AppPreference.importAllFromJson(json)
         assertEquals(raw, prefs.pattern(HapticPatternKind.SPECIAL_KEY))
         assertEquals(emptyList<HapticStep>(), prefs.pattern(HapticPatternKind.NORMAL_FLICK).steps)
         assertTrue(prefs.useMediaUsage())
+        for (kind in listOf(HapticPatternKind.STAGE_ADVANCE, HapticPatternKind.STAGE_RETREAT, HapticPatternKind.STAGE_CHANGE)) {
+            assertEquals(raw, prefs.pattern(kind))
+        }
+        assertTrue(prefs.isStageEnabled())
+        assertEquals(FlickStageHapticSettings(false, 65, StageChangeMode.COMPOSITE, 45), prefs.stageSettings())
     }
 
     @Test

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="haptic_stage_enabled">Flick stage feedback (experimental)</string>
+    <string name="haptic_stage_enabled_summary">Vibrate while moving through flick stages. Existing press and release feedback remains active.</string>
+    <string name="haptic_stage_suppression">Suppress rapid boundary oscillation</string>
+    <string name="haptic_stage_suppression_summary">Suppress repeated crossings of the same selection boundary. Text selection is unaffected.</string>
+    <string name="haptic_stage_suppression_ms">Oscillation window (ms)</string>
+    <string name="haptic_stage_change_mode">Direction change playback</string>
+    <string name="haptic_stage_delay_ms">Application delay (ms)</string>
+    <string name="haptic_stage_delay_summary">Time between the starts of retreat and advance commands. Used only in application delay mode.</string>
+    <string name="haptic_stage_advance">Stage advance waveform</string>
+    <string name="haptic_stage_retreat">Stage retreat waveform</string>
+    <string name="haptic_stage_change">Direction change compound waveform</string>
+    <string name="haptic_stage_change_summary">Independent waveform for compound mode. Edit its pauses here; it does not follow the application delay.</string>
+    <string-array name="haptic_stage_change_modes">
+        <item>ON (application delay)</item>
+        <item>ON (independent compound waveform)</item>
+        <item>OFF (no delay)</item>
+    </string-array>
+    <string-array name="haptic_stage_change_values">
+        <item>application</item>
+        <item>composite</item>
+        <item>off</item>
+    </string-array>
+</resources>
