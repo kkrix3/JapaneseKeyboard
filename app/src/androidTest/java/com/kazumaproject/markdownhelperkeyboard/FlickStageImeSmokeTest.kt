@@ -14,6 +14,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.kazumaproject.custom_keyboard.haptics.CustomHapticPreferences
 import com.kazumaproject.custom_keyboard.layout.KeyboardDefaultLayouts
+import com.kazumaproject.markdownhelperkeyboard.custom_keyboard.ui.KeyboardEditorViewModel
 import com.kazumaproject.markdownhelperkeyboard.ime_service.di.AppModule
 import com.kazumaproject.markdownhelperkeyboard.repository.KeyboardRepository
 import kotlinx.coroutines.runBlocking
@@ -103,8 +104,16 @@ class FlickStageImeSmokeTest {
             flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         }
         try {
-            repository.saveLayout(KeyboardDefaultLayouts.createFlickKanaTemplateLayout(false)
-                .copy(isDirectMode = true), "Stage feedback smoke", null)
+            // Templates use label-indexed maps. The editor converts those maps to the
+            // stable key IDs required by persistence, just as the real template UI does.
+            val editor = KeyboardEditorViewModel(repository)
+            editor.applyTemplate(KeyboardDefaultLayouts.createFlickKanaTemplateLayout(false))
+            val layout = editor.uiState.value.layout.copy(isDirectMode = true)
+            val aKey = layout.keys.single { it.label == "あ" }
+            check(layout.flickKeyMaps[aKey.keyId].orEmpty().isNotEmpty()) {
+                "The saved test layout must contain actions for the あ key ID"
+            }
+            repository.saveLayout(layout, "Stage feedback smoke", null)
             shell("ime enable $ime")
             shell("ime set $ime")
             for (suppress in listOf(false, true)) for (mode in listOf("application", "composite", "off")) {
