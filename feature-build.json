@@ -1,0 +1,14 @@
+{
+  "baseSha": "d0acb1ef3002c59adbe513548b9224b357eb65be",
+  "featureRef": "feature/flick-stage-haptics",
+  "featureSha": "af8bb232bea7a650de5f7612d011a0949175f3a5",
+  "infrastructureRef": "build/feature-apk-infrastructure",
+  "infrastructureSha": "e2adc19425c7842dc0ecbd43c20537463c1130c4",
+  "appTestFilters": [
+    "*CustomHapticBackupCompatibilityTest",
+    "*CustomHapticSettingsEntryPointTest"
+  ],
+  "deviceTestClasses": [
+    "com.kazumaproject.markdownhelperkeyboard.FlickStageImeSmokeTest"
+  ]
+}
