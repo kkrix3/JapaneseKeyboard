@@ -284,7 +284,7 @@ class CrossFlickInputController(
                 }
 
                 val newDirection = calculateDirection(dx, dy)
-                if (!isLongPressMode) {
+                if (inputMode == InputMode.TEXT || !isLongPressMode) {
                     stageHaptics?.update(this, if (newDirection == FlickDirection.TAP) emptyList() else listOf(newDirection.name))
                 }
 
@@ -331,9 +331,9 @@ class CrossFlickInputController(
     // 長押しタイマーが満了したときに呼ばれる。モードに応じてポップアップ表示を切り替える。
     // ACTION: 全方向のアクションポップアップを展開。TEXT: TAP中のみグリッド表示に切り替え（フリック中は方向ポップアップを維持）。
     private fun onLongPressTriggered() {
-        stageHaptics?.end(this)
         when (inputMode) {
             InputMode.ACTION -> {
+                stageHaptics?.end(this)
                 showAllActionPopups()
                 highlightActionPopup(currentDirection)
                 notifyLongPressActionPreview()

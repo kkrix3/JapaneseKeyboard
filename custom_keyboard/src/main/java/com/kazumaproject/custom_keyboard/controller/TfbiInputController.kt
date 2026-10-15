@@ -112,7 +112,6 @@ class TfbiInputController(
         }
 
         isLongPressModeActive = true
-        stageHaptics?.end(this)
         popupWindow?.dismiss()
         showPopup(view, TfbiFlickDirection.TAP, true)
         listener?.onSelectionChanged(
@@ -206,10 +205,8 @@ class TfbiInputController(
 
             MotionEvent.ACTION_MOVE -> {
                 handleTouchMove(event, view)
-                if (!isLongPressModeActive) {
-                    stageHaptics?.update(this, twoStepHapticPath(
-                        firstFlickDirection.name, currentSecondFlickDirection.name))
-                }
+                stageHaptics?.update(this, twoStepHapticPath(
+                    firstFlickDirection.name, currentSecondFlickDirection.name))
             }
 
             MotionEvent.ACTION_UP -> {
