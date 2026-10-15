@@ -1,5 +1,6 @@
 package com.kazumaproject.custom_keyboard.haptics
 
+import android.app.Activity
 import android.content.Context
 import android.graphics.Color
 import android.os.Looper
@@ -19,6 +20,7 @@ import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
@@ -38,10 +40,12 @@ class FlickStageControllerTest {
     private val raw = PreferenceManager.getDefaultSharedPreferences(context)
     private data class Target(val view: Button, val cancel: () -> Unit)
 
-    private fun target(kind: String): Target {
+    private fun target(kind: String, attachToWindow: Boolean = false): Target {
         raw.edit().clear().putBoolean(CustomHapticPreferences.KEY_STAGE_ENABLED, true)
             .putBoolean(CustomHapticPreferences.KEY_STAGE_SUPPRESSION, false).commit()
         val button = Button(context).apply { layout(0, 0, 100, 100) }
+        val activity = if (attachToWindow) Robolectric.buildActivity(Activity::class.java).setup() else null
+        activity?.get()?.setContentView(button)
         val map = mapOf(FlickDirection.TAP to "tap", FlickDirection.UP to "first",
             FlickDirection.UP_RIGHT_FAR to "right")
         val provider = { first: TfbiFlickDirection, second: TfbiFlickDirection ->
@@ -100,7 +104,10 @@ class FlickStageControllerTest {
             }
             else -> error(kind)
         }
-        return Target(button, cancel)
+        return Target(button) {
+            cancel()
+            activity?.pause()?.stop()?.destroy()
+        }
     }
 
     private fun touch(view: Button, action: Int, x: Float = 50f, y: Float = 50f) {
@@ -209,7 +216,7 @@ class FlickStageControllerTest {
 
     @Test fun textGuideLongPressKeepsStageFeedbackAndReleaseAddsNoStageCommand() {
         for (kind in listOf("cross-text", "two-step")) {
-            val target = target(kind)
+            val target = target(kind, attachToWindow = true)
             played.clear()
             touch(target.view, MotionEvent.ACTION_DOWN)
             shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(501))
@@ -225,7 +232,7 @@ class FlickStageControllerTest {
     }
 
     @Test fun petalLongPressTextKeepsFeedbackPreviewAndCommit() {
-        val target = target("cross-text")
+        val target = target("cross-text", attachToWindow = true)
         val previews = mutableListOf<String?>()
         val commits = mutableListOf<KeyAction>()
         val controller = CrossFlickInputController(context, config).apply {
@@ -254,7 +261,7 @@ class FlickStageControllerTest {
 
     @Test fun twoStepLongPressKeepsBothStagesAndExistingCommitFallback() {
         for (hasLongPressText in listOf(false, true)) {
-            val target = target("two-step")
+            val target = target("two-step", attachToWindow = true)
             played.clear()
             val previews = mutableListOf<Pair<TfbiFlickDirection, TfbiFlickDirection>>()
             val commits = mutableListOf<String>()
