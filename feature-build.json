@@ -1,7 +1,7 @@
 {
   "baseSha": "d0acb1ef3002c59adbe513548b9224b357eb65be",
   "featureRef": "feature/flick-stage-haptics",
-  "featureSha": "01a96e288a4b2dc72c5d4f81aacc201ccbb00acc",
+  "featureSha": "77c002dbaff05de692e159c971506aeee29df6c3",
   "infrastructureRef": "build/feature-apk-infrastructure",
   "infrastructureSha": "e2adc19425c7842dc0ecbd43c20537463c1130c4",
   "appTestFilters": [
