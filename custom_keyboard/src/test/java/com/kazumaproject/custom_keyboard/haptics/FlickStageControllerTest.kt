@@ -206,4 +206,90 @@ class FlickStageControllerTest {
         assertEquals(listOf(HapticPatternKind.STAGE_ADVANCE), played)
         target.cancel()
     }
+
+    @Test fun textGuideLongPressKeepsStageFeedbackAndReleaseAddsNoStageCommand() {
+        for (kind in listOf("cross-text", "two-step")) {
+            val target = target(kind)
+            played.clear()
+            touch(target.view, MotionEvent.ACTION_DOWN)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(501))
+            assertTrue(kind, played.isEmpty())
+            touch(target.view, MotionEvent.ACTION_MOVE, y = -50f)
+            touch(target.view, MotionEvent.ACTION_MOVE, y = -50f)
+            assertEquals(kind, listOf(HapticPatternKind.STAGE_ADVANCE), played)
+            touch(target.view, MotionEvent.ACTION_UP, y = -50f)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200))
+            assertEquals(kind, listOf(HapticPatternKind.STAGE_ADVANCE), played)
+            target.cancel()
+        }
+    }
+
+    @Test fun petalLongPressTextKeepsFeedbackPreviewAndCommit() {
+        val target = target("cross-text")
+        val previews = mutableListOf<String?>()
+        val commits = mutableListOf<KeyAction>()
+        val controller = CrossFlickInputController(context, config).apply {
+            stageHaptics = feedback
+            listener = object : CrossFlickInputController.CrossFlickListener {
+                override fun onPress(action: KeyAction) = Unit
+                override fun onFlick(action: KeyAction, isFlick: Boolean) { commits += action }
+                override fun onFlickLongPress(action: KeyAction) = Unit
+                override fun onFlickUpAfterLongPress(action: KeyAction, isFlick: Boolean) = Unit
+                override fun onTextSelectionChanged(text: String?, isFlick: Boolean) { previews += text }
+            }
+            attachText(target.view, mapOf(FlickDirection.TAP to "tap", FlickDirection.UP to "up"),
+                mapOf(FlickDirection.UP to "held-up"))
+        }
+        touch(target.view, MotionEvent.ACTION_DOWN)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(501))
+        touch(target.view, MotionEvent.ACTION_MOVE, y = -50f)
+        assertEquals("held-up", previews.last())
+        assertEquals(listOf(HapticPatternKind.STAGE_ADVANCE), played)
+        touch(target.view, MotionEvent.ACTION_UP, y = -50f)
+        assertEquals(listOf(KeyAction.Text("held-up")), commits)
+        assertEquals(1, played.size)
+        controller.cancel()
+        target.cancel()
+    }
+
+    @Test fun twoStepLongPressKeepsBothStagesAndExistingCommitFallback() {
+        for (hasLongPressText in listOf(false, true)) {
+            val target = target("two-step")
+            played.clear()
+            val previews = mutableListOf<Pair<TfbiFlickDirection, TfbiFlickDirection>>()
+            val commits = mutableListOf<String>()
+            val controller = TfbiInputController(context, config).apply {
+                stageHaptics = feedback
+                listener = object : TfbiInputController.TfbiListener {
+                    override fun onPress(first: TfbiFlickDirection, second: TfbiFlickDirection) = Unit
+                    override fun onFlick(first: TfbiFlickDirection, second: TfbiFlickDirection) {
+                        commits += "normal:$first:$second"
+                    }
+                    override fun onLongPressFlick(first: TfbiFlickDirection, second: TfbiFlickDirection): Boolean {
+                        if (hasLongPressText) commits += "held:$first:$second"
+                        return hasLongPressText
+                    }
+                    override fun onSelectionChanged(first: TfbiFlickDirection, second: TfbiFlickDirection,
+                        isLongPress: Boolean) {
+                        assertTrue(isLongPress)
+                        previews += first to second
+                    }
+                }
+                attach(target.view, { _, _ -> "normal" },
+                    { _, _ -> if (hasLongPressText) "held" else "" })
+            }
+            touch(target.view, MotionEvent.ACTION_DOWN)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(501))
+            touch(target.view, MotionEvent.ACTION_MOVE, y = -50f)
+            touch(target.view, MotionEvent.ACTION_MOVE, x = 150f, y = -50f)
+            assertEquals(TfbiFlickDirection.UP to TfbiFlickDirection.RIGHT, previews.last())
+            assertEquals(listOf(HapticPatternKind.STAGE_ADVANCE, HapticPatternKind.STAGE_ADVANCE), played)
+            touch(target.view, MotionEvent.ACTION_UP, x = 150f, y = -50f)
+            assertEquals(listOf(if (hasLongPressText) "held:UP:RIGHT" else "normal:UP:RIGHT"), commits)
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200))
+            assertEquals(2, played.size)
+            controller.cancel()
+            target.cancel()
+        }
+    }
 }
