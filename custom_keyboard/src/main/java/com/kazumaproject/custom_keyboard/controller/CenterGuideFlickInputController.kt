@@ -1,5 +1,6 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.MotionEvent
@@ -53,6 +54,7 @@ class CenterGuideFlickInputController(
     }
 
     var listener: Listener? = null
+    var stageHaptics: FlickStageHapticFeedback? = null
 
     private var attachedView: View? = null
     private var popupWindowAnchorProvider: (() -> View?)? = null
@@ -112,6 +114,7 @@ class CenterGuideFlickInputController(
     }
 
     fun cancel() {
+        stageHaptics?.end(this)
         listener?.onCanceled()
         activeGestureConfig = null
         isTouchActive = false
@@ -124,6 +127,7 @@ class CenterGuideFlickInputController(
     private fun handleTouchEvent(view: View, event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
+                stageHaptics?.begin(this)
                 activeGestureConfig = gestureConfigSource.snapshot()
                 isTouchActive = true
                 initialTouchX = event.x
@@ -151,6 +155,7 @@ class CenterGuideFlickInputController(
                 )
                 val directionChanged = newDirection != currentDirection
                 currentDirection = newDirection
+                stageHaptics?.update(this, if (newDirection == TfbiFlickDirection.TAP) emptyList() else listOf(newDirection.name))
 
                 updateGuide(view, deltaX, deltaY)
                 if (directionChanged) {
@@ -163,6 +168,7 @@ class CenterGuideFlickInputController(
             }
 
             MotionEvent.ACTION_UP -> {
+                stageHaptics?.end(this)
                 if (!isTouchActive) return true
                 view.isPressed = false
                 val character = resolveText(currentDirection)
@@ -177,6 +183,7 @@ class CenterGuideFlickInputController(
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                stageHaptics?.end(this)
                 if (!isTouchActive) return true
                 view.isPressed = false
                 listener?.onCanceled()

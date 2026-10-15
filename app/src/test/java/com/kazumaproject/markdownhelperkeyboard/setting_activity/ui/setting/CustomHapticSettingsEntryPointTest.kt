@@ -19,6 +19,9 @@ class CustomHapticSettingsEntryPointTest {
         "custom_haptic_pattern_normal_flick",
         "custom_haptic_pattern_two_step_flick",
         "custom_haptic_pattern_special_key",
+        "custom_haptic_pattern_stage_advance",
+        "custom_haptic_pattern_stage_retreat",
+        "custom_haptic_pattern_stage_change",
     )
     private val mediaKey = "custom_haptic_media_usage"
 
