@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Sumire Feature</string>
+    <string name="title_activity_main">Sumire Feature</string>
+    <string name="setting_fragment_title">Sumire Feature 設定</string>
+    <string name="setting_route_legacy_settings_title">Sumire Feature 設定（従来画面）</string>
+</resources>
