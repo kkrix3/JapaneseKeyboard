@@ -560,6 +560,46 @@ class LOUDSWithTermId {
         return result
     }
 
+    /** Same terminal/DFS order as predictiveSearch; lengths count UTF-16 code units. */
+    fun predictiveSearch(
+        prefix: String,
+        succinctBitVector: SuccinctBitVector,
+        maxReadingLength: Int,
+        checkCancellation: () -> Unit,
+    ): List<String> {
+        checkCancellation()
+        if (prefix.length > maxReadingLength) return emptyList()
+        var node = 0
+        val reading = StringBuilder(prefix.length)
+        for (char in prefix) {
+            node = traverse(node, char, succinctBitVector)
+            if (node < 0) return emptyList()
+            val index = succinctBitVector.rank1(node)
+            if (index >= labelCount) return emptyList()
+            reading.append(labelAt(index))
+        }
+        val result = ArrayList<String>()
+        var visited = 0
+        fun collect(nodeIndex: Int) {
+            if (visited++ and 63 == 0) checkCancellation()
+            if (isLeaf[nodeIndex]) result.add(reading.toString())
+            // Test before descending so no overlong branch or String is constructed.
+            if (reading.length >= maxReadingLength) return
+            var child = firstChild(nodeIndex, succinctBitVector)
+            while (child >= 0 && LBS[child]) {
+                val index = succinctBitVector.rank1(child)
+                if (index >= labelCount) break
+                reading.append(labelAt(index))
+                collect(child)
+                reading.deleteCharAt(reading.length - 1)
+                child++
+            }
+        }
+        collect(node)
+        checkCancellation()
+        return result
+    }
+
     fun predictiveSearch(
         prefix: String, rank0Array: ShortArray, rank1Array: ShortArray
     ): List<String> {

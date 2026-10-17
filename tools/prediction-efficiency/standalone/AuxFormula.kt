@@ -1,0 +1,2 @@
+package com.kazumaproject.markdownhelperkeyboard.converter.utility
+class FormulaCandidatePresentation
