@@ -1,0 +1,29 @@
+{
+  "baselineCommit": "df1f38315bf56d860d32919a3eaed6a75499e91e",
+  "featureCodeCommit": "c79100544e5c6a3ca9e705cd71b4c6a3955a3aca",
+  "os": "Linux x86_64",
+  "cpu": "AMD EPYC 9V74",
+  "java": "OpenJDK 17.0.20",
+  "compiler": "Kotlin 2.3.21 (Gradle 9.6.0 distribution)",
+  "coroutines": "1.10.2",
+  "vmFlags": [
+    "-Xms512m",
+    "-Xmx1024m",
+    "-XX:+UseSerialGC"
+  ],
+  "dictionaryStorage": "PackedCharArray / PackedIntArray, same data for both variants",
+  "runs": 3,
+  "parityConditionsPerRun": 5076,
+  "uniqueInputs": 846,
+  "workloadRequests": 353,
+  "units": {
+    "time": "microseconds",
+    "allocation": "bytes per invocation (cumulative allocation, not retained heap)"
+  },
+  "assetSHA256": {
+    "system/yomi.dat.zip": "ca7e139fffec9b2a386b1b01a47492c80e5dfd40febec927c58faa2fcc7f2392",
+    "system/tango.dat.zip": "2e709161d5b219534d7039a93f32875b1cc2d31517abb4e99685c6b95ed9514e",
+    "system/token.dat.zip": "bacf1846404cd26a5c0d66210013906b7e039c45a2fe389194857c069ae958c6",
+    "pos_table.dat": "2aa09e7f5318cb7be2f7d88c4a4473987a480bbecce3269685f7696797ed9f48"
+  }
+}
