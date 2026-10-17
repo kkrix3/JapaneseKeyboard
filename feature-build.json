@@ -1,7 +1,7 @@
 {
   "baseSha": "df1f38315bf56d860d32919a3eaed6a75499e91e",
   "featureRef": "feature/prediction-search-efficiency",
-  "featureSha": "c79100544e5c6a3ca9e705cd71b4c6a3955a3aca",
+  "featureSha": "48455f00f2c79d7def1600a1532544a1f00d72d3",
   "infrastructureRef": "build/feature-apk-v1.7.132",
   "infrastructureSha": "bf786ad644b6dac85c62d9b7824e61ef3a9eeae2",
   "appTestFilters": [
