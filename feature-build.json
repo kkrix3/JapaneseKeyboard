@@ -10,6 +10,6 @@
     "*LOUDSWithTermIdExactMatchTest"
   ],
   "deviceTestClasses": [
-    "com.kazumaproject.markdownhelperkeyboard.converter.ClassifiedExactCandidatesInstrumentedTest"
+    "com.kazumaproject.markdownhelperkeyboard.converter.EmojiCategoryInstrumentedTest"
   ]
 }
