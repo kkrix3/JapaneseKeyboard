@@ -1,0 +1,15 @@
+{
+  "baseSha": "df1f38315bf56d860d32919a3eaed6a75499e91e",
+  "featureRef": "feature/prediction-search-efficiency",
+  "featureSha": "df1f38315bf56d860d32919a3eaed6a75499e91e",
+  "infrastructureRef": "build/feature-apk-v1.7.132",
+  "infrastructureSha": "bf786ad644b6dac85c62d9b7824e61ef3a9eeae2",
+  "appTestFilters": [
+    "*PredictionConfigTest",
+    "*ClassifiedPredictionParityTest",
+    "*LOUDSWithTermIdExactMatchTest"
+  ],
+  "deviceTestClasses": [
+    "com.kazumaproject.markdownhelperkeyboard.converter.ClassifiedExactCandidatesInstrumentedTest"
+  ]
+}
