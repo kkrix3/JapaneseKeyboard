@@ -213,6 +213,13 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
+          # The Pixel profile can keep its hardware keyboard despite the action's
+          # false input. Match upstream's software-IME emulator preparation.
+          pre-emulator-launch-script: >-
+            avd_config="${ANDROID_AVD_HOME}/test.avd/config.ini" &&
+            sed -i '/^[[:space:]]*hw\.keyboard[[:space:]]*=/d' "$avd_config" &&
+            printf '%s\n' 'hw.keyboard=no' >> "$avd_config" &&
+            grep '^hw.keyboard=no$' "$avd_config"
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash scripts/preview/device_tests.sh
       - name: Upload device input reports
