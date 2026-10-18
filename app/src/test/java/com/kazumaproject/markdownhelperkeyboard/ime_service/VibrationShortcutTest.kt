@@ -122,6 +122,12 @@ class VibrationShortcutTest {
     @Test fun imeToggleUpdatesLegacyCacheAndDoesNotVibrateItself() {
         val ime = Robolectric.buildService(IMEService::class.java).get()
         ime.appPreference = AppPreference
+        // Upstream's floating-cursor shortcut state also reads the shared settings.
+        // This partial fixture skips onCreate, so initialize that dependency explicitly.
+        IMEService::class.java.getDeclaredField("runtimeInputSharedPreferences").apply {
+            isAccessible = true
+            set(ime, prefs)
+        }
         val toggle = IMEService::class.java.getDeclaredMethod("toggleVibrationFromShortcut").apply {
             isAccessible = true
         }
