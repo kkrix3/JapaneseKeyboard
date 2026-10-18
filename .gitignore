@@ -32,3 +32,8 @@ app/liteStandard
 preview-artifact/
 signed/
 unsigned/
+
+# Download cache for the pinned dictionary import tool.
+.cache/classified-distribution/
+
+tools/classified-dictionaries/__pycache__/

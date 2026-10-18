@@ -48,7 +48,7 @@ jobs:
       - name: Install Full Android dependencies
         run: |
           echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
       - name: Unit and integration regression tests
         run: |
           python3 -m unittest discover -s scripts/feature -p 'test_*.py' -v
@@ -102,7 +102,7 @@ jobs:
       - name: Install Full Android dependencies
         run: |
           echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

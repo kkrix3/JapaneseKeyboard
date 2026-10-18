@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Uses the real IME and editor in an isolated disposable Feature testbench.
- * Run :app:connectedFullStandardDebugAndroidTest with -PfeatureDeviceTest=true
+ * Run :app:connectedFullStandardDebugAndroidTest with -PpreviewDeviceTest=true (or the existing -PfeatureDeviceTest=true)
  * and -Pandroid.testInstrumentationRunnerArguments.class=com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest.
  */
 @RunWith(AndroidJUnit4::class)
@@ -187,7 +187,7 @@ class SmallTsuImeDeviceTest {
 
     @Test fun realImeAndEditor_doubleTapAcrossKanaSurfaces() = runBlocking {
         val context=ins.targetContext
-        check(context.packageName.endsWith(".feature.testbench")) { "Use isolated disposable emulator testbench" }
+        check(context.packageName.endsWith(".feature.testbench") || context.packageName.endsWith(".preview.testbench")) { "Use isolated disposable emulator testbench" }
         val target="${context.packageName}/com.kazumaproject.markdownhelperkeyboard.ime_service.IMEService"
         val oldIme=shell("settings get secure default_input_method").trim()
         val prefs=PreferenceManager.getDefaultSharedPreferences(context)
