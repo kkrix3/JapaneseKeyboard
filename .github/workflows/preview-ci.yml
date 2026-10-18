@@ -2,7 +2,7 @@ name: Sumire Full Preview CI
 
 on:
   push:
-    branches: [preview, 'integration/preview-v1.7.133-20261018']
+    branches: [preview]
   pull_request:
     branches: [preview]
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: sumire-preview-${{ github.event_name == 'pull_request' && github.event.number || github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
@@ -111,7 +111,7 @@ jobs:
             --no-daemon --console=plain --max-workers=2
           python3 scripts/preview/verify_apk.py \
             app/build/outputs/apk/fullStandard/preview/sumire-preview-fullStandard-unsigned.apk \
-            --version-code "$PREVIEW_VERSION_CODE" \
+            --version-code "$PREVIEW_VERSION_CODE" --version-name "1.7.133-preview" \
             --commit "$(git rev-parse HEAD)" --output-dir preview-artifact
       - name: Upload Full Debug for build inspection
         if: matrix.target == 'upstream'
@@ -129,6 +129,14 @@ jobs:
           path: |
             preview-artifact/sumire-preview-full-unsigned.apk
             preview-artifact/metadata.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload APK inspection
+        if: matrix.target == 'preview'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sumire-preview-apk-inspection
+          path: preview-artifact/inspection.txt
           if-no-files-found: error
           retention-days: 14
       - name: Upload test reports
