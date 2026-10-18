@@ -1,7 +1,6 @@
 package com.kazumaproject.markdownhelperkeyboard
 
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.Intent
 import android.graphics.Rect
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
@@ -12,11 +11,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inspector.WindowInspector
 import android.view.MotionEvent
-import android.view.accessibility.AccessibilityNodeInfo
 import androidx.preference.PreferenceManager
-import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
+import androidx.test.runner.lifecycle.Stage
 import com.kazumaproject.custom_keyboard.layout.KeyboardDefaultLayouts
 import com.kazumaproject.custom_keyboard.view.FlickKeyboardView
 import com.kazumaproject.tenkey.TenKey
@@ -33,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Uses the real IME and editor in an isolated disposable Feature testbench.
- * Run :app:connectedFullStandardDebugAndroidTest with -PfeatureDeviceTest=true
+ * Run :app:connectedFullStandardDebugAndroidTest with -PpreviewDeviceTest=true (or the existing -PfeatureDeviceTest=true)
  * and -Pandroid.testInstrumentationRunnerArguments.class=com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest.
  */
 @RunWith(AndroidJUnit4::class)
@@ -43,19 +42,17 @@ class SmallTsuImeDeviceTest {
     private val keyWindowIds = mutableMapOf<Rect, Int>()
     private fun shell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
         automation.executeShellCommand(command)).bufferedReader().use { it.readText() }
-    private fun nodes(): List<AccessibilityNodeInfo> {
-        val result = mutableListOf<AccessibilityNodeInfo>()
-        fun visit(node: AccessibilityNodeInfo) {
-            result.add(node)
-            for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
-        }
-        automation.windows.forEach { it.root?.let(::visit) }
-        return result
-    }
     private fun key(label: String): Rect {
         val deadline = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < deadline) {
-            nodes().firstOrNull { it.packageName?.toString() == ins.targetContext.packageName &&
+            // Like upstream's FloatingCursorDeviceTest, query the label directly:
+            // recursively reading both docked/floating trees can take seconds per
+            // key and exhaust the geometry deadline. Prefer the topmost window.
+            if (android.os.Build.VERSION.SDK_INT >= 33) automation.clearCache()
+            automation.windows.sortedByDescending { it.layer }.asSequence()
+                .mapNotNull { it.root }
+                .flatMap { it.findAccessibilityNodeInfosByText(label).asSequence() }
+                .firstOrNull { it.packageName?.toString() == ins.targetContext.packageName &&
                 it.isVisibleToUser && it.isClickable &&
                 it.text?.toString()?.lineSequence()?.firstOrNull()?.trim() == label
             }?.let { node ->
@@ -66,20 +63,22 @@ class SmallTsuImeDeviceTest {
             }
             SystemClock.sleep(100)
         }
-        error("Missing key $label: " + nodes().joinToString { "${it.text}/${it.contentDescription}" })
+        error("Missing key $label; windows=" + automation.windows.joinToString { "${it.id}/${it.type}/${it.layer}" })
     }
     private fun awaitStableKeyboard() {
         var previous: Rect? = null
         var unchanged = 0
+        val samples = mutableListOf<Rect>()
         val deadline = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < deadline) {
             val bounds = key("あ")
+            samples.add(Rect(bounds))
             unchanged = if (bounds == previous) unchanged + 1 else 0
             if (unchanged >= 3) return
             previous = bounds
             SystemClock.sleep(100)
         }
-        error("Custom keyboard geometry did not settle")
+        error("Keyboard geometry did not settle: $samples")
     }
     private data class StrokeTime(val down: Long, val up: Long)
 
@@ -170,13 +169,39 @@ class SmallTsuImeDeviceTest {
         SystemClock.sleep(35)
     }
 
-    private fun text(scenario: ActivityScenario<FastInputHostActivity>): String {
+    private inner class EditorSession(private val activity: FastInputHostActivity) : AutoCloseable {
+        fun onActivity(action: (FastInputHostActivity) -> Unit) {
+            ins.runOnMainSync { action(activity) }
+        }
+        override fun close() {
+            ins.runOnMainSync { activity.finish() }
+        }
+    }
+
+    private fun launchEditor(): EditorSession {
+        // Match upstream's SumireInputLifecycleDeviceTest: ActivityScenario's
+        // global waitForIdleSync can stall while the real IME keeps rendering.
+        shell("am start -n ${ins.targetContext.packageName}/${FastInputHostActivity::class.java.name}")
+        val deadline = SystemClock.uptimeMillis() + 15000
+        while (SystemClock.uptimeMillis() < deadline) {
+            var host: FastInputHostActivity? = null
+            ins.runOnMainSync {
+                host = ActivityLifecycleMonitorRegistry.getInstance().getActivitiesInStage(Stage.RESUMED)
+                    .filterIsInstance<FastInputHostActivity>().firstOrNull { !it.isFinishing && !it.isDestroyed }
+            }
+            host?.let { return EditorSession(it) }
+            SystemClock.sleep(50)
+        }
+        error("Editor did not resume")
+    }
+
+    private fun text(scenario: EditorSession): String {
         var result = ""
         scenario.onActivity { result = it.editText.text.toString() }
         return result
     }
 
-    private fun awaitLiveText(scenario: ActivityScenario<FastInputHostActivity>, expected:String, label:String) {
+    private fun awaitLiveText(scenario: EditorSession, expected:String, label:String) {
         val deadline=SystemClock.uptimeMillis()+3000
         while(SystemClock.uptimeMillis()<deadline) {
             if(text(scenario)==expected)return
@@ -187,7 +212,7 @@ class SmallTsuImeDeviceTest {
 
     @Test fun realImeAndEditor_doubleTapAcrossKanaSurfaces() = runBlocking {
         val context=ins.targetContext
-        check(context.packageName.endsWith(".feature.testbench")) { "Use isolated disposable emulator testbench" }
+        check(context.packageName.endsWith(".feature.testbench") || context.packageName.endsWith(".preview.testbench")) { "Use isolated disposable emulator testbench" }
         val target="${context.packageName}/com.kazumaproject.markdownhelperkeyboard.ime_service.IMEService"
         val oldIme=shell("settings get secure default_input_method").trim()
         val prefs=PreferenceManager.getDefaultSharedPreferences(context)
@@ -223,7 +248,7 @@ class SmallTsuImeDeviceTest {
                 // to change the unrelated editor-caret implementation.
                 check(prefs.edit().putBoolean("double_tap_small_tsu_enabled",false).commit())
                 var offCursorResult=""
-                ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
+                launchEditor().use { scenario ->
                     awaitStableKeyboard()
                     tap(key("あ"));val ka=key("か");tap(ka)
                     assertEquals("OFF precondition","あか",text(scenario))
@@ -233,7 +258,7 @@ class SmallTsuImeDeviceTest {
                         offCursorResult in setOf("かあか","あかか"))
                 }
                 check(prefs.edit().putBoolean("double_tap_small_tsu_enabled",true).commit())
-                ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
+                launchEditor().use { scenario ->
                     android.util.Log.i("SmallTsuTest","surface=$surface style=$style floating=$floating preview=$preview")
                     awaitStableKeyboard()
                     val ka=key("か");val ta=key("た");val a=key("あ")
@@ -258,7 +283,7 @@ class SmallTsuImeDeviceTest {
                 // The existing live conversion display is asynchronous; wait for that
                 // result, while the non-live cases above still assert immediate input.
                 check(prefs.edit().putBoolean("live_conversion_preference",true).commit())
-                ActivityScenario.launch<FastInputHostActivity>(Intent(context,FastInputHostActivity::class.java)).use { scenario ->
+                launchEditor().use { scenario ->
                     awaitStableKeyboard()
                     val ka=key("か")
                     tapPair(ka,gapMillis=200)
