@@ -11,7 +11,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inspector.WindowInspector
 import android.view.MotionEvent
-import android.view.accessibility.AccessibilityNodeInfo
 import androidx.preference.PreferenceManager
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -43,19 +42,17 @@ class SmallTsuImeDeviceTest {
     private val keyWindowIds = mutableMapOf<Rect, Int>()
     private fun shell(command: String) = ParcelFileDescriptor.AutoCloseInputStream(
         automation.executeShellCommand(command)).bufferedReader().use { it.readText() }
-    private fun nodes(): List<AccessibilityNodeInfo> {
-        val result = mutableListOf<AccessibilityNodeInfo>()
-        fun visit(node: AccessibilityNodeInfo) {
-            result.add(node)
-            for (index in 0 until node.childCount) node.getChild(index)?.let(::visit)
-        }
-        automation.windows.forEach { it.root?.let(::visit) }
-        return result
-    }
     private fun key(label: String): Rect {
         val deadline = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < deadline) {
-            nodes().firstOrNull { it.packageName?.toString() == ins.targetContext.packageName &&
+            // Like upstream's FloatingCursorDeviceTest, query the label directly:
+            // recursively reading both docked/floating trees can take seconds per
+            // key and exhaust the geometry deadline. Prefer the topmost window.
+            if (android.os.Build.VERSION.SDK_INT >= 33) automation.clearCache()
+            automation.windows.sortedByDescending { it.layer }.asSequence()
+                .mapNotNull { it.root }
+                .flatMap { it.findAccessibilityNodeInfosByText(label).asSequence() }
+                .firstOrNull { it.packageName?.toString() == ins.targetContext.packageName &&
                 it.isVisibleToUser && it.isClickable &&
                 it.text?.toString()?.lineSequence()?.firstOrNull()?.trim() == label
             }?.let { node ->
@@ -66,20 +63,22 @@ class SmallTsuImeDeviceTest {
             }
             SystemClock.sleep(100)
         }
-        error("Missing key $label: " + nodes().joinToString { "${it.text}/${it.contentDescription}" })
+        error("Missing key $label; windows=" + automation.windows.joinToString { "${it.id}/${it.type}/${it.layer}" })
     }
     private fun awaitStableKeyboard() {
         var previous: Rect? = null
         var unchanged = 0
+        val samples = mutableListOf<Rect>()
         val deadline = SystemClock.uptimeMillis() + 15000
         while (SystemClock.uptimeMillis() < deadline) {
             val bounds = key("あ")
+            samples.add(Rect(bounds))
             unchanged = if (bounds == previous) unchanged + 1 else 0
             if (unchanged >= 3) return
             previous = bounds
             SystemClock.sleep(100)
         }
-        error("Custom keyboard geometry did not settle")
+        error("Keyboard geometry did not settle: $samples")
     }
     private data class StrokeTime(val down: Long, val up: Long)
 
