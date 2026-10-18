@@ -502,10 +502,16 @@ class QwertyMultiTouchInstrumentedTest {
         return QWERTYKeyboardView(themedContext).apply {
             setPopUpViewState(false)
             setOnQWERTYKeyListener(listener)
-            val widthSpec = View.MeasureSpec.makeMeasureSpec(1080, View.MeasureSpec.EXACTLY)
-            val heightSpec = View.MeasureSpec.makeMeasureSpec(500, View.MeasureSpec.EXACTLY)
+            // Keep a realistic keyboard size at every emulator density. A fixed
+            // 500px height compresses keys below the density-scaled flick slop
+            // on Pixel 6 Pro, so a whole-key upward stroke is no longer a flick.
+            val density = resources.displayMetrics.density
+            val width = (360 * density).toInt()
+            val height = (240 * density).toInt()
+            val widthSpec = View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY)
+            val heightSpec = View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
             measure(widthSpec, heightSpec)
-            layout(0, 0, 1080, 500)
+            layout(0, 0, width, height)
         }
     }
 

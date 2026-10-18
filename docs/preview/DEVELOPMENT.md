@@ -1,11 +1,28 @@
 # Sumire development fork
 
-Status: Preview integrates the complete upstream stable release v1.7.128 while retaining
+Status: This integration tracks the complete upstream stable release v1.7.133 while retaining
 custom haptics, the vibration toggle shortcut, double-tap small-tsu and Preview identity.
-The merge preserves published ancestry; PR #4 (custom special-flick text) is excluded.
+The merge preserves published ancestry; independent PRs #4, #7 and #8 are excluded.
 Full build and device evidence is recorded by `Sumire Full Preview CI` for its exact SHA.
 
-## v1.7.128 integration checks
+## v1.7.133 integration
+
+- Public release: `005a31c5902002e2f43424174fa8d234bd603c05` (1.7.133, code 826).
+- Previous Preview: `6878da1b19cdfbbc3b61e27311d2c255a0dee94d`; ordinary merge
+  `70f1af8685116fb4800d3c87e9af911efcd525ef`. Unreleased upstream/dev commits are excluded.
+- AGP 9.4.1 / Gradle 9.6 / SDK 37 use the upstream-pinned JBR 25 daemon with a
+  Java 17 launcher. Install `platforms;android-37.0`, Build Tools 36.0.0,
+  NDK 29.0.14206865 and CMake 3.22.1.
+- Preserve both cursor synchronization and small-tsu ownership, including queued
+  DOWN/text/cancel events and committed-input haptic context. Attach waveform settings
+  after upstream's asynchronous preferences finish loading.
+- Device tests use `-PpreviewDeviceTest=true` and the disposable `.preview.testbench`
+  identity. Reuse upstream emulator readiness checks to remove emulated hardware keys.
+- [Draft PR #9](https://github.com/kkrix3/JapaneseKeyboard/pull/9) records exact tested
+  commits, test reports, APK artifacts, fixture repairs and remaining device checks.
+  This integration branch does not publish a signed APK or merge itself into Preview.
+
+## Historical v1.7.128 integration checks
 
 - Release/dev baseline: `be9cccd7e6fef176667a12eb66fa6fe64380c9db` (1.7.128, code 821).
 - Previous Preview: `6f1ba3be2c301dc0e74a65e73916600339eea8c8`; ordinary merge,
@@ -34,7 +51,7 @@ Full build and device evidence is recorded by `Sumire Full Preview CI` for its e
 - origin: https://github.com/kkrix3/JapaneseKeyboard.git (formal public fork)
 - upstream: https://github.com/KazumaProject/JapaneseKeyboard.git
 - PoC, read only: https://github.com/kkrix3/sumire-haptics
-- Current stable upstream baseline: `be9cccd7e6fef176667a12eb66fa6fe64380c9db` (1.7.128, code 821).
+- Current stable upstream baseline: `005a31c5902002e2f43424174fa8d234bd603c05` (1.7.133, code 826).
 - PoC source: `fde1890dbd0c17322cf8f063e2557cd4ef7c68de`, feature/custom-haptics.
 
 | Branch | Role |
@@ -79,7 +96,7 @@ be resolved on preview unless the fix intrinsically belongs to a feature. Record
 
 | Purpose | Task | Application ID | Artifact |
 | --- | --- | --- | --- |
-| Release/dev validation | :app:assembleFullStandardDebug | com.kazumaproject.markdownhelperkeyboard | sumire-dev-full-debug |
+| Release validation | :app:assembleFullStandardDebug | com.kazumaproject.markdownhelperkeyboard | sumire-upstream-full-debug |
 | Daily Preview input | :app:assembleFullStandardPreview -PpreviewVersionCode=N | com.kazumaproject.markdownhelperkeyboard.preview | sumire-preview-full-unsigned |
 | Daily installable APK | isolated apksigner job after tests | same Preview ID | sumire-preview-full-signed |
 
@@ -99,13 +116,13 @@ The only active Preview workflow is `.github/workflows/preview-ci.yml`:
 `.github/upstream-workflows`, so upstream tag-release/sync jobs do not run for Preview.
 Dev and feature retain upstream files unchanged. No Release or upstream PR is created.
 
-On a Preview push or PR (and the v1.7.128 integration branch), the release dev and integration variants are tested without secrets:
-custom_keyboard suite, selected Full app regression/backup tests, Full Debug and unsigned
+On a Preview push or a PR targeting Preview, the public release and integration variants are tested without secrets:
+custom_keyboard and core suites, selected Full app regression/backup tests, Full Debug and unsigned
 Full Preview. SHA-pinned checkout/setup-java/upload/download actions use contents:read;
 checkout does not persist credentials. Failures do not prevent uploading test reports.
-The dev validation job is pinned to release v1.7.128 (`be9cccd7e6fef176667a12eb66fa6fe64380c9db`); Preview checks out the triggering SHA. Both record the actual checkout SHA.
+The upstream validation job is pinned to release v1.7.133 (`005a31c5902002e2f43424174fa8d234bd603c05`); Preview checks out the triggering SHA. Both record the actual checkout SHA.
 The old `feature/custom-haptics` head is not used as evidence for updated dev/preview.
-A separate API 35 emulator job runs Sumire and QWERTY multi-pointer instrumentation.
+A separate API 35 emulator job runs real-IME small-tsu and Sumire/QWERTY multi-pointer instrumentation.
 Signing requires both build verification and device-input jobs to succeed.
 
 For manual signed runs, make `preview` the fork's GitHub default branch after publication.
@@ -129,7 +146,7 @@ workflow run. Preserve this epoch, package name and signer for the lifetime of P
 Before installation, verify_update_pair.py checks the actual pair of APKs; never force
 a downgrade or uninstall to bypass a failed compatibility check.
 
-## Verification and remaining work
+## Historical verification and remaining work
 
 [CI run 35032069860](https://github.com/kkrix3/JapaneseKeyboard/actions/runs/35032069860)
 succeeded on Preview commit `211feb89953a5f103b8757c8de744e93d388c5ab` and feature commit
