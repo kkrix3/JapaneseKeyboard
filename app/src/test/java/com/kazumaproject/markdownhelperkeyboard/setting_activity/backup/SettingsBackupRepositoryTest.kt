@@ -53,10 +53,15 @@ class SettingsBackupRepositoryTest {
             ShortcutType.PASTE,
             ShortcutType.SETTINGS,
             ShortcutType.LEARNING_PAUSE,
-            ShortcutType.KEYBOARD_FLOATING_TOGGLE
+            ShortcutType.KEYBOARD_FLOATING_TOGGLE,
+            ShortcutType.SMALL_TSU_TOGGLE,
+            ShortcutType.VIBRATION_TOGGLE
         )
         shortcuts.updateShortcuts(selected)
-        preferences.edit().putBoolean("backup_test", true).commit()
+        preferences.edit().putBoolean("backup_test", true)
+            .putBoolean("double_tap_small_tsu_enabled", true)
+            .putBoolean("vibration_preference", false)
+            .putString("custom_haptic_pattern_normal_flick", "5,32;20,0;5,255").commit()
 
         val json = backups.exportAllToJson()
         val payload = Gson().fromJson(json, PrefBackup::class.java)
@@ -69,6 +74,9 @@ class SettingsBackupRepositoryTest {
         shortcuts.initDefaultShortcutsIfNeeded()
 
         assertTrue(preferences.getBoolean("backup_test", false))
+        assertTrue(preferences.getBoolean("double_tap_small_tsu_enabled", false))
+        assertFalse(preferences.getBoolean("vibration_preference", true))
+        assertEquals("5,32;20,0;5,255", preferences.getString("custom_haptic_pattern_normal_flick", null))
         assertFalse(preferences.contains("after_export"))
         assertEquals(selected, shortcuts.enabledShortcutsFlow.first())
         val restored = database.shortcutDao().getAllShortcuts()

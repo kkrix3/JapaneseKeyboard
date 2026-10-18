@@ -68,6 +68,20 @@ jobs:
         id: core
         continue-on-error: true
         run: bash ./gradlew :core:testDebugUnitTest --no-daemon --console=plain --max-workers=2
+      - name: Initialize missing dependency in upstream test fixture
+        if: matrix.target == 'upstream'
+        run: |
+          # The unmodified v1.7.133 Full suite has two identical fixture failures
+          # (API 24/35). Repair only its test setup; production remains the release.
+          python3 - <<'PYCODE'
+          from pathlib import Path
+          path = Path('app/src/test/java/com/kazumaproject/markdownhelperkeyboard/ime_service/IMEServiceFloatingCursorRegressionTest.kt')
+          source = path.read_text()
+          marker = '        it.appPreference = mock<AppPreference>()\n'
+          assert source.count(marker) == 1
+          path.write_text(source.replace(marker, marker + '        it.zenzRuntimeClient = mock()\n'))
+          PYCODE
+          git diff --stat
       - name: Upstream Full app regression tests
         id: upstream-app
         continue-on-error: true
@@ -100,6 +114,20 @@ jobs:
             --tests '*Cursor*Test' --tests '*FlickPreview*Test' --tests '*MigrationTest' \
             --tests '*Setting*Test' \
             --no-daemon --console=plain --max-workers=2
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sumire-${{ matrix.target }}-test-reports
+          path: |
+            custom_keyboard/build/test-results/
+            custom_keyboard/build/reports/tests/
+            core/build/test-results/
+            core/build/reports/tests/
+            app/build/test-results/testFullStandardDebugUnitTest/
+            app/build/reports/tests/testFullStandardDebugUnitTest/
+          retention-days: 14
+
       - name: Build Full Standard Debug
         if: matrix.target == 'upstream'
         run: bash ./gradlew :app:assembleFullStandardDebug --no-daemon --console=plain --max-workers=2
@@ -139,20 +167,6 @@ jobs:
           path: preview-artifact/inspection.txt
           if-no-files-found: error
           retention-days: 14
-      - name: Upload test reports
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
-        with:
-          name: sumire-${{ matrix.target }}-test-reports
-          path: |
-            custom_keyboard/build/test-results/
-            custom_keyboard/build/reports/tests/
-            core/build/test-results/
-            core/build/reports/tests/
-            app/build/test-results/testFullStandardDebugUnitTest/
-            app/build/reports/tests/testFullStandardDebugUnitTest/
-          retention-days: 14
-
       - name: Require all regression suites to pass
         if: always()
         env:
