@@ -247,8 +247,14 @@ class FlickStageControllerTest {
             attachText(target.view, mapOf(FlickDirection.TAP to "tap", FlickDirection.UP to "up"),
                 mapOf(FlickDirection.UP to "held-up"))
         }
+        // Start the posted Main coroutine before advancing the simulated hold clock.
+        // The assertion below proves the long-press callback actually ran, rather
+        // than accepting an ordinary flick that happens to use the same waveform.
+        shadowOf(Looper.getMainLooper()).idle()
         touch(target.view, MotionEvent.ACTION_DOWN)
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(501))
+        shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(600))
+        assertEquals("Long-press preview before MOVE", listOf("tap"), previews)
         touch(target.view, MotionEvent.ACTION_MOVE, y = -50f)
         assertEquals("held-up", previews.last())
         assertEquals(listOf(HapticPatternKind.STAGE_ADVANCE), played)

@@ -61,6 +61,7 @@ class HapticPatternEditorDialogTest {
             editor.showNow(controller.get().supportFragmentManager, "editor")
             val dialog = editor.requireDialog() as AlertDialog
             click(dialog, controller.get().getString(R.string.haptic_clear))
+            click(dialog, "Tick-like")
             click(dialog, "Click-like")
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
             shadowOf(Looper.getMainLooper()).idle()
