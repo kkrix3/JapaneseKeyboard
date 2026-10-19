@@ -16,6 +16,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry
 import androidx.test.runner.lifecycle.Stage
+import com.kazumaproject.custom_keyboard.haptics.CustomHapticPreferences
 import com.kazumaproject.custom_keyboard.layout.KeyboardDefaultLayouts
 import com.kazumaproject.custom_keyboard.view.FlickKeyboardView
 import com.kazumaproject.tenkey.TenKey
@@ -208,6 +209,80 @@ class SmallTsuImeDeviceTest {
             SystemClock.sleep(25)
         }
         assertEquals(label,expected,text(scenario))
+    }
+
+    private fun directionChange(rect: Rect, holdForGuide: Boolean) {
+        val start = SystemClock.uptimeMillis()
+        for ((action, dx, dy) in listOf(
+            Triple(MotionEvent.ACTION_DOWN, 0f, 0f),
+            Triple(MotionEvent.ACTION_MOVE, 0f, -rect.height().toFloat()),
+            Triple(MotionEvent.ACTION_MOVE, rect.width().toFloat(), 0f),
+            Triple(MotionEvent.ACTION_UP, rect.width().toFloat(), 0f))) {
+            val motion = MotionEvent.obtain(start, SystemClock.uptimeMillis(), action,
+                rect.exactCenterX() + dx, rect.exactCenterY() + dy, 0).apply {
+                source = InputDevice.SOURCE_TOUCHSCREEN
+            }
+            try { check(automation.injectInputEvent(motion, true)) } finally { motion.recycle() }
+            SystemClock.sleep(if (holdForGuide && action == MotionEvent.ACTION_DOWN) 800 else 20)
+        }
+        SystemClock.sleep(250)
+    }
+
+    @Test fun realIme_stageModesKeepInputAndSmallTsuWithIndependentRouting() {
+        val context = ins.targetContext
+        check(context.packageName.endsWith(".preview.testbench"))
+        val target = "${context.packageName}/com.kazumaproject.markdownhelperkeyboard.ime_service.IMEService"
+        val oldIme = shell("settings get secure default_input_method").trim()
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        automation.serviceInfo = automation.serviceInfo.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        }
+        data class Case(val stage: Boolean, val master: Boolean, val suppress: Boolean, val mode: String)
+        val cases = listOf(Case(false, true, true, "application"), Case(true, false, true, "application")) +
+            listOf(false, true).flatMap { suppress -> listOf("application", "composite", "off").map {
+                Case(true, true, suppress, it)
+            } }
+        try {
+            shell("ime enable $target"); shell("ime set $target")
+            for (independent in listOf(false, true)) for (case in cases) {
+                check(prefs.edit()
+                    .putString("keyboard_order_preference", "[\"SUMIRE\"]")
+                    .putBoolean("save_last_used_keyboard", false)
+                    .putBoolean("keyboard_floating_preference", false)
+                    .putBoolean("flick_input_only_preference", true)
+                    .putString("sumire_keyboard_style_preference", "sumire")
+                    .putString("sumire_input_method_preference", "flick")
+                    .putBoolean("live_conversion_preference", false)
+                    .putBoolean("flick_editor_preview_preference", true)
+                    .putBoolean("double_tap_small_tsu_enabled", true)
+                    .putInt("double_tap_small_tsu_interval", 500)
+                    .putBoolean("independent_multi_touch_preference", independent)
+                    .putBoolean(CustomHapticPreferences.KEY_STAGE_ENABLED, case.stage)
+                    .putBoolean(CustomHapticPreferences.KEY_VIBRATION_ENABLED, case.master)
+                    .putBoolean(CustomHapticPreferences.KEY_STAGE_SUPPRESSION, case.suppress)
+                    .putString(CustomHapticPreferences.KEY_STAGE_CHANGE_MODE, case.mode)
+                    .putInt(CustomHapticPreferences.KEY_STAGE_DELAY_MS, 200).commit())
+                launchEditor().use { scenario ->
+                    awaitStableKeyboard()
+                    val a = key("あ")
+                    directionChange(a, holdForGuide = false)
+                    assertEquals("$case independent=$independent direction", "え", text(scenario))
+                    directionChange(a, holdForGuide = true)
+                    assertEquals("$case independent=$independent guide", "ええ", text(scenario))
+                    tapPair(key("た"), flickSecond = true)
+                    assertEquals("$case independent=$independent small-tsu", "ええっち", text(scenario))
+                    SystemClock.sleep(250)
+                    assertEquals("no delayed input", "ええっち", text(scenario))
+                }
+                android.util.Log.i("FlickStageTest", "PASS $case independent=$independent")
+            }
+        } finally {
+            // Leave the pre-existing 20-case suite at its baseline configuration.
+            prefs.edit().putBoolean(CustomHapticPreferences.KEY_STAGE_ENABLED, false)
+                .putBoolean(CustomHapticPreferences.KEY_VIBRATION_ENABLED, true)
+                .putBoolean("independent_multi_touch_preference", false).commit()
+            if (oldIme.isNotEmpty() && oldIme != "null") shell("ime set $oldIme")
+        }
     }
 
     @Test fun realImeAndEditor_doubleTapAcrossKanaSurfaces() = runBlocking {

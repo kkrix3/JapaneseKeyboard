@@ -1,5 +1,6 @@
 package com.kazumaproject.custom_keyboard.view
 
+import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import com.kazumaproject.custom_keyboard.haptics.InputHapticContext
 import android.annotation.SuppressLint
 import android.content.Context
@@ -165,6 +166,9 @@ class FlickKeyboardView @JvmOverloads constructor(
     private val independentTextPreviews = linkedMapOf<KeyData, FlickTextSelection>()
     private val independentLastCoordinates = mutableMapOf<Int, Pair<Float, Float>>()
 
+    private val stageHaptics by lazy {
+        FlickStageHapticFeedback(context)
+    }
     private val flickControllers = mutableListOf<CustomAngleFlickController>()
     private val crossFlickControllers = mutableListOf<CrossFlickInputController>()
     private val centerGuideFlickControllers = mutableListOf<CenterGuideFlickInputController>()
@@ -1578,6 +1582,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         context = context,
                         gestureConfigSource = gestureSessionConfigSource
                     ).apply {
+                        stageHaptics = this@FlickKeyboardView.stageHaptics
                         setPopupWindowAnchorProvider(popupWindowAnchorProvider)
                         setInputTextTransform(::transformInputTextForDisplay)
                         val secondaryColor =
@@ -1766,6 +1771,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         context = context,
                         gestureConfigSource = gestureSessionConfigSource
                     ).apply {
+                        stageHaptics = this@FlickKeyboardView.stageHaptics
                         setPopupOverlayHostProvider(popupWindowAnchorProvider)
                         setInputTextTransform(::transformInputTextForDisplay)
                         applyPopupViewStyleSet(
@@ -2005,6 +2011,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         gestureConfigSource = gestureSessionConfigSource
                     ).apply {
                         setConcurrentSkinGuidesProvider { independentMultiTouchForCurrentGesture }
+                        stageHaptics = this@FlickKeyboardView.stageHaptics
                         setPopupWindowAnchorProvider(popupWindowAnchorProvider)
                         setInputTextTransform(::transformInputTextForDisplay)
                         applyPopupViewStyle(popupViewStyleSet.standard)
@@ -2120,6 +2127,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         context = context,
                         gestureConfigSource = gestureSessionConfigSource
                     ).apply {
+                        stageHaptics = this@FlickKeyboardView.stageHaptics
                         setPopupOverlayHostProvider(popupWindowAnchorProvider)
                         setInputTextTransform(::transformInputTextForDisplay)
                         applyPopupViewStyleSet(
@@ -2288,6 +2296,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         context = context,
                         gestureConfigSource = gestureSessionConfigSource
                     ).apply {
+                        stageHaptics = this@FlickKeyboardView.stageHaptics
                         setPopupWindowAnchorProvider(popupWindowAnchorProvider)
                         setInputTextTransform(::transformInputTextForDisplay)
                         applyPopupViewStyle(popupViewStyleSet.tfbi)
@@ -2438,6 +2447,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         context = context,
                         gestureConfigSource = gestureSessionConfigSource
                     ).apply {
+                        stageHaptics = this@FlickKeyboardView.stageHaptics
                         setPopupWindowAnchorProvider(popupWindowAnchorProvider)
                         setPopupPresentationMode(tfbiPopupPresentationMode)
                         setTfbiFlickStartPositionMode(tfbiFlickStartPositionMode)
@@ -2613,6 +2623,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         context = context,
                         gestureConfigSource = gestureSessionConfigSource
                     ).apply {
+                        stageHaptics = this@FlickKeyboardView.stageHaptics
                         setPopupWindowAnchorProvider(popupWindowAnchorProvider)
                         setPopupPresentationMode(tfbiPopupPresentationMode)
                         setTfbiFlickStartPositionMode(tfbiFlickStartPositionMode)
@@ -2687,6 +2698,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                         context = context,
                         gestureConfigSource = gestureSessionConfigSource
                     ).apply {
+                        stageHaptics = this@FlickKeyboardView.stageHaptics
                         setPopupWindowAnchorProvider(popupWindowAnchorProvider)
                         setPopupPresentationMode(tfbiPopupPresentationMode)
                         setTfbiFlickStartPositionMode(tfbiFlickStartPositionMode)
@@ -3083,6 +3095,7 @@ class FlickKeyboardView @JvmOverloads constructor(
     private fun cancelTrackedTouchState() {
         independentLastCoordinates.clear()
         independentTextPreviews.clear()
+        stageHaptics.cancel()
         cancelTextPreview()
         if (motionTargets.isEmpty() && pointerDownTime.isEmpty()) return
         kanaGestureObserver?.cancel()
@@ -3315,6 +3328,10 @@ class FlickKeyboardView @JvmOverloads constructor(
             MotionEvent.ACTION_POINTER_DOWN, MotionEvent.ACTION_POINTER_UP,
             MotionEvent.ACTION_CANCEL -> { kanaSinglePointer = false; kanaGestureObserver?.cancel() }
         }
+        // Cancel even when independent routing returns early (including a second
+        // pointer outside all keys or on an exclusive/same-key target).
+        if (action == MotionEvent.ACTION_DOWN || action == MotionEvent.ACTION_POINTER_DOWN ||
+            action == MotionEvent.ACTION_CANCEL) stageHaptics.cancel()
         if (independentMultiTouchForCurrentGesture) {
             return if (isCursorMode) onIndependentCursorTouchEvent(event) else onIndependentTouchEvent(event)
         }

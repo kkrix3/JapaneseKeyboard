@@ -18,6 +18,34 @@ import org.robolectric.annotation.Config
 @Config(sdk = [35])
 class CustomHapticPlayerTest {
 
+    @Test fun stagesWorkInEveryExistingTimingModeAndStillRespectSystemAndMaster() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val raw = PreferenceManager.getDefaultSharedPreferences(context)
+        val vibrator = context.getSystemService(VibratorManager::class.java).defaultVibrator
+        val shadow = shadowOf(vibrator)
+        shadow.setHasVibrator(true)
+        shadow.setHasAmplitudeControl(true)
+        val player = CustomHapticPlayer(context)
+        Settings.System.putInt(context.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 1)
+        for (timing in listOf("press", "release", "both", "custom")) {
+            raw.edit().clear().putBoolean(CustomHapticPreferences.KEY_STAGE_ENABLED, true)
+                .putString(CustomHapticPreferences.KEY_VIBRATION_TIMING, timing).commit()
+            player.playStage(HapticPatternKind.STAGE_ADVANCE)
+            assertTrue("Stage missing for $timing", shadow.isVibrating)
+            vibrator.cancel()
+        }
+        Settings.System.putInt(context.contentResolver, Settings.System.HAPTIC_FEEDBACK_ENABLED, 0)
+        player.playStage(HapticPatternKind.STAGE_ADVANCE)
+        assertFalse(shadow.isVibrating)
+        raw.edit().putBoolean(CustomHapticPreferences.KEY_MEDIA_USAGE, true).commit()
+        player.playStage(HapticPatternKind.STAGE_ADVANCE)
+        assertTrue(shadow.isVibrating)
+        vibrator.cancel()
+        raw.edit().putBoolean(CustomHapticPreferences.KEY_VIBRATION_ENABLED, false).commit()
+        player.playStage(HapticPatternKind.STAGE_ADVANCE)
+        assertFalse(shadow.isVibrating)
+    }
+
     @Test
     fun legacyFallbackPreservesOffOnTimingStructure() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()

@@ -1,5 +1,6 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
@@ -59,6 +60,7 @@ class CustomAngleFlickController(
     }
 
     var listener: FlickListener? = null
+    var stageHaptics: FlickStageHapticFeedback? = null
 
     private var popupWindowAnchorProvider: (() -> View?)? = null
 
@@ -155,6 +157,7 @@ class CustomAngleFlickController(
     }
 
     fun cancel() {
+        stageHaptics?.end(this)
         listener?.onCanceled()
         activeGestureConfig = null
         hidePopup()
@@ -216,6 +219,7 @@ class CustomAngleFlickController(
 
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                stageHaptics?.begin(this)
                 val gestureConfig = gestureConfigSource.snapshot()
                 activeGestureConfig = gestureConfig
                 anchorView = view
@@ -250,6 +254,8 @@ class CustomAngleFlickController(
             }
 
             MotionEvent.ACTION_MOVE -> {
+                // Here long press reveals the guide only; it does not select a separate action.
+                stageHaptics?.update(this, if (currentDirection == CircularFlickDirection.TAP) emptyList() else listOf(currentDirection.name))
                 if (currentDirection != previousDirection) {
                     listener?.onFlickDirectionChanged(currentDirection)
 
@@ -290,6 +296,7 @@ class CustomAngleFlickController(
             }
 
             MotionEvent.ACTION_UP -> {
+                stageHaptics?.end(this)
                 longPressJob?.cancel()
 
                 val finalDirection = calculateDirection(event.rawX, event.rawY)
@@ -323,6 +330,7 @@ class CustomAngleFlickController(
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                stageHaptics?.end(this)
                 longPressJob?.cancel()
                 isLongPressModeActive = false
                 previousDirection = CircularFlickDirection.TAP

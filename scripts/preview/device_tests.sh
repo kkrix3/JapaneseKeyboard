@@ -5,6 +5,7 @@ mkdir -p device-input-artifacts
 export IME_EMULATOR_LOG_DIR="$PWD/device-input-artifacts"
 source .github/scripts/ime-emulator-common.sh
 ime_emulator_prepare || exit 1
+adb shell setprop log.tag.FlickStageHaptics DEBUG
 adb logcat -v threadtime > device-input-artifacts/logcat.txt &
 logcat_pid=$!
 trap 'kill "$logcat_pid" 2>/dev/null || true' EXIT

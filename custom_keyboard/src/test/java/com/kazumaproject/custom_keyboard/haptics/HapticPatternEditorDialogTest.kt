@@ -53,6 +53,29 @@ class HapticPatternEditorDialogTest {
         controller.pause().stop().destroy()
     }
 
+    @Test fun allThreeStagePatternsCanBeEditedSavedAndReopenedIndependently() {
+        val preferences = CustomHapticPreferences(context)
+        for (kind in listOf(HapticPatternKind.STAGE_ADVANCE, HapticPatternKind.STAGE_RETREAT, HapticPatternKind.STAGE_CHANGE)) {
+            val controller = activity()
+            val editor = HapticPatternEditorDialog.newInstance(kind)
+            editor.showNow(controller.get().supportFragmentManager, "editor")
+            val dialog = editor.requireDialog() as AlertDialog
+            click(dialog, controller.get().getString(R.string.haptic_clear))
+            click(dialog, "Click-like")
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            shadowOf(Looper.getMainLooper()).idle()
+            val expected = listOf(HapticStep(5, 32), HapticStep(5, 96))
+            assertEquals(expected, preferences.pattern(kind).steps)
+            HapticPatternEditorDialog.newInstance(kind).showNow(controller.get().supportFragmentManager, "reopened")
+            val reopened = controller.get().supportFragmentManager.findFragmentByTag("reopened") as HapticPatternEditorDialog
+            (reopened.requireDialog() as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(expected, preferences.pattern(kind).steps)
+            assertEquals(HapticPattern.defaultFor(HapticPatternKind.NORMAL_FLICK), preferences.pattern(HapticPatternKind.NORMAL_FLICK))
+            controller.pause().stop().destroy()
+        }
+    }
+
     @Test fun clearAndCancelDoNotOverwriteSavedPattern() {
         val controller = activity()
         val editor = HapticPatternEditorDialog.newInstance(HapticPatternKind.TWO_STEP_FLICK)

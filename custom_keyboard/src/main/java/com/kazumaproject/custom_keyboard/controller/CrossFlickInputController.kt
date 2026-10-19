@@ -1,5 +1,6 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.PointF
@@ -103,6 +104,7 @@ class CrossFlickInputController(
     }
 
     var listener: CrossFlickListener? = null
+    var stageHaptics: FlickStageHapticFeedback? = null
 
     private var popupOverlayHostProvider: (() -> View?)? = null
 
@@ -189,6 +191,7 @@ class CrossFlickInputController(
 
     // コントローラを破棄する。ビューのデタッチやキーボードビューの再構築時に FlickKeyboardView から呼ばれる。
     fun cancel() {
+        stageHaptics?.end(this)
         listener?.onCanceled()
         activeGestureConfig = null
         longPressJob?.cancel()
@@ -228,6 +231,7 @@ class CrossFlickInputController(
     private fun handleTouchEvent(view: View, event: MotionEvent): Boolean {
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                stageHaptics?.begin(this)
                 val gestureConfig = gestureConfigSource.snapshot()
                 activeGestureConfig = gestureConfig
                 view.isPressed = true
@@ -280,6 +284,9 @@ class CrossFlickInputController(
                 }
 
                 val newDirection = calculateDirection(dx, dy)
+                if (inputMode == InputMode.TEXT || !isLongPressMode) {
+                    stageHaptics?.update(this, if (newDirection == FlickDirection.TAP) emptyList() else listOf(newDirection.name))
+                }
 
                 if (newDirection != currentDirection) {
                     currentDirection = newDirection
@@ -299,6 +306,7 @@ class CrossFlickInputController(
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                stageHaptics?.end(this)
                 view.isPressed = false
                 longPressJob?.cancel()
                 longPressJob = null
@@ -325,6 +333,7 @@ class CrossFlickInputController(
     private fun onLongPressTriggered() {
         when (inputMode) {
             InputMode.ACTION -> {
+                stageHaptics?.end(this)
                 showAllActionPopups()
                 highlightActionPopup(currentDirection)
                 notifyLongPressActionPreview()

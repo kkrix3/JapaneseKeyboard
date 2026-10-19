@@ -1,5 +1,6 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Color
@@ -59,6 +60,7 @@ class StandardFlickInputController(
     }
 
     var listener: StandardFlickListener? = null
+    var stageHaptics: FlickStageHapticFeedback? = null
     private var popupWindowAnchorProvider: (() -> View?)? = null
     private var characterMap: Map<FlickDirection, String> = emptyMap()
     private var anchorView: View? = null
@@ -153,6 +155,7 @@ class StandardFlickInputController(
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
                 dismissOtherSkinGuide(view)
+                stageHaptics?.begin(this)
                 activeGestureConfig = gestureConfigSource.snapshot()
                 anchorView = view
                 initialTouchX = event.rawX
@@ -167,6 +170,7 @@ class StandardFlickInputController(
                 val dx = event.rawX - initialTouchX
                 val dy = event.rawY - initialTouchY
                 val direction = calculateDirection(dx, dy)
+                stageHaptics?.update(this, if (direction == FlickDirection.TAP) emptyList() else listOf(direction.name))
                 segmentedDrawable?.highlightDirection = direction
                 showPopup(direction)
                 listener?.onSelectionChanged(
@@ -177,6 +181,7 @@ class StandardFlickInputController(
             }
 
             MotionEvent.ACTION_UP -> {
+                stageHaptics?.end(this)
                 segmentedDrawable?.highlightDirection = null
                 val dx = event.rawX - initialTouchX
                 val dy = event.rawY - initialTouchY
@@ -193,6 +198,7 @@ class StandardFlickInputController(
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                stageHaptics?.end(this)
                 segmentedDrawable?.highlightDirection = null
                 dismissPopup()
                 anchorView = null
@@ -360,6 +366,7 @@ class StandardFlickInputController(
     }
 
     fun cancel() {
+        stageHaptics?.end(this)
         listener?.onCanceled()
         activeGestureConfig = null
         dismissPopup()

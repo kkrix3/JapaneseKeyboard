@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
+import com.kazumaproject.custom_keyboard.haptics.hierarchicalHapticPath
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.Log
@@ -86,6 +88,7 @@ class TfbiHierarchicalFlickController(
     }
 
     var listener: TfbiListener? = null
+    var stageHaptics: FlickStageHapticFeedback? = null
     private var attachedView: View? = null
 
     private var currentMode = KeyMode.NORMAL
@@ -228,6 +231,7 @@ class TfbiHierarchicalFlickController(
      * コントローラーを View からデタッチし、リソースを解放します。
      */
     fun cancel() {
+        stageHaptics?.end(this)
         listener?.onCanceled()
         resetState()
         attachedView?.setOnTouchListener(null)
@@ -239,10 +243,21 @@ class TfbiHierarchicalFlickController(
     private fun handleTouchEvent(event: MotionEvent): Boolean {
         val view = attachedView ?: return false
         when (event.action) {
-            MotionEvent.ACTION_DOWN -> handleTouchDown(event, view)
-            MotionEvent.ACTION_MOVE -> handleTouchMove(event, view)
-            MotionEvent.ACTION_UP -> handleTouchUp(event)
+            MotionEvent.ACTION_DOWN -> {
+                stageHaptics?.begin(this)
+                handleTouchDown(event, view)
+            }
+            MotionEvent.ACTION_MOVE -> {
+                handleTouchMove(event, view)
+                stageHaptics?.update(this, hierarchicalHapticPath(
+                    highlightStack.toList().asReversed().map { it.name }, currentHighlight.name))
+            }
+            MotionEvent.ACTION_UP -> {
+                stageHaptics?.end(this)
+                handleTouchUp(event)
+            }
             MotionEvent.ACTION_CANCEL -> {
+                stageHaptics?.end(this)
                 listener?.onCanceled()
                 resetState()
             }

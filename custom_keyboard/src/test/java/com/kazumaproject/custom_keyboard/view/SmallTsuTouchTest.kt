@@ -19,7 +19,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class) @Config(sdk=[35])
 class SmallTsuTouchTest {
     private class Harness(type: KeyType = KeyType.CROSS_FLICK, binding: DoubleTapBinding? = null,
-                          val tapText: String = "た", layout: KeyboardLayout? = null) {
+                          val tapText: String = "た", layout: KeyboardLayout? = null, stage: Boolean = false) {
         var reading = ""
         var revision = 0L
         var replacement: String? = null
@@ -34,6 +34,8 @@ class SmallTsuTouchTest {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val context = ContextThemeWrapper(activity,
             com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar)
+        private val configured = androidx.preference.PreferenceManager.getDefaultSharedPreferences(context)
+            .edit().putBoolean("flick_stage_haptic_enabled", stage).commit()
         val view = FlickKeyboardView(context)
         fun snapshot() = SmallTsuSnapshot(owner,1,revision,"kana",reading)
         init {
@@ -195,6 +197,25 @@ class SmallTsuTouchTest {
             assertFalse("multitouch must not arm the next pair", h.reading.contains("っ"))
             h.tap(280)
             assertTrue("single-finger pairing resumes", h.reading.contains("っ"))
+        }
+    }
+
+    @Test fun stageFeedbackKeepsSmallTsuPairsAndFinalFlickInBothRoutingModes() {
+        for (stage in listOf(false, true)) for (independent in listOf(false, true)) {
+            for (style in listOf("default", "circle", "sumire", "second-flick", "third-flick", "center-guide-flick")) {
+                val h = Harness(layout = singleSa(style), stage = stage)
+                h.view.setIndependentMultiTouchEnabled(independent)
+                h.tap(100); h.tap(200)
+                assertEquals("$style stage=$stage independent=$independent", "っさ", h.reading)
+                h.tap(1000)
+                h.at(MotionEvent.ACTION_DOWN, 1100, 1100, .5f, .5f)
+                h.at(MotionEvent.ACTION_MOVE, 1100, 1110, 0f, .5f)
+                h.at(MotionEvent.ACTION_UP, 1100, 1120, 0f, .5f)
+                assertEquals("$style stage=$stage independent=$independent", "っさっし", h.reading)
+                assertEquals(4, h.releases)
+                assertEquals(4, h.played.size)
+                h.view.visibility = View.GONE
+            }
         }
     }
 

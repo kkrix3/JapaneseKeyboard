@@ -12,6 +12,17 @@ class CustomHapticPreferences(context: Context) {
 
     fun useMediaUsage(): Boolean = prefs.getBoolean(KEY_MEDIA_USAGE, false)
 
+    fun isStageEnabled(): Boolean = prefs.getBoolean(KEY_STAGE_ENABLED, false)
+
+    fun stageSettings(): FlickStageHapticSettings = FlickStageHapticSettings(
+        suppressOscillation = prefs.getBoolean(KEY_STAGE_SUPPRESSION, true),
+        suppressionMs = prefs.getInt(KEY_STAGE_SUPPRESSION_MS, 40).coerceIn(0, 200).toLong(),
+        changeMode = StageChangeMode.entries.firstOrNull {
+            it.preferenceValue == prefs.getString(KEY_STAGE_CHANGE_MODE, "application")
+        } ?: StageChangeMode.APPLICATION,
+        delayMs = prefs.getInt(KEY_STAGE_DELAY_MS, 30).coerceIn(0, 200).toLong()
+    )
+
     fun pattern(kind: HapticPatternKind): HapticPattern {
         val raw = prefs.getString(patternKey(kind), null)
         return parsePattern(raw) ?: HapticPattern.defaultFor(kind)
@@ -50,6 +61,9 @@ class CustomHapticPreferences(context: Context) {
         HapticPatternKind.NORMAL_FLICK -> KEY_PATTERN_NORMAL
         HapticPatternKind.TWO_STEP_FLICK -> KEY_PATTERN_TWO_STEP
         HapticPatternKind.SPECIAL_KEY -> KEY_PATTERN_SPECIAL
+        HapticPatternKind.STAGE_ADVANCE -> KEY_PATTERN_STAGE_ADVANCE
+        HapticPatternKind.STAGE_RETREAT -> KEY_PATTERN_STAGE_RETREAT
+        HapticPatternKind.STAGE_CHANGE -> KEY_PATTERN_STAGE_CHANGE
     }
 
     companion object {
@@ -60,5 +74,13 @@ class CustomHapticPreferences(context: Context) {
         const val KEY_PATTERN_NORMAL = "custom_haptic_pattern_normal_flick"
         const val KEY_PATTERN_TWO_STEP = "custom_haptic_pattern_two_step_flick"
         const val KEY_PATTERN_SPECIAL = "custom_haptic_pattern_special_key"
+        const val KEY_STAGE_ENABLED = "flick_stage_haptic_enabled"
+        const val KEY_STAGE_SUPPRESSION = "flick_stage_haptic_suppression"
+        const val KEY_STAGE_SUPPRESSION_MS = "flick_stage_haptic_suppression_ms"
+        const val KEY_STAGE_CHANGE_MODE = "flick_stage_haptic_change_mode"
+        const val KEY_STAGE_DELAY_MS = "flick_stage_haptic_delay_ms"
+        const val KEY_PATTERN_STAGE_ADVANCE = "custom_haptic_pattern_stage_advance"
+        const val KEY_PATTERN_STAGE_RETREAT = "custom_haptic_pattern_stage_retreat"
+        const val KEY_PATTERN_STAGE_CHANGE = "custom_haptic_pattern_stage_change"
     }
 }
