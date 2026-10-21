@@ -174,6 +174,9 @@ class HapticPatternEditorDialog : DialogFragment() {
             HapticPatternKind.NORMAL_FLICK -> R.string.haptic_normal
             HapticPatternKind.TWO_STEP_FLICK -> R.string.haptic_two_step
             HapticPatternKind.SPECIAL_KEY -> R.string.haptic_special
+            HapticPatternKind.STAGE_ADVANCE -> R.string.haptic_stage_advance
+            HapticPatternKind.STAGE_RETREAT -> R.string.haptic_stage_retreat
+            HapticPatternKind.STAGE_CHANGE -> R.string.haptic_stage_change
         }
     }
 }

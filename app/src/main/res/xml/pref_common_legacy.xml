@@ -875,6 +875,67 @@
             android:key="custom_haptic_pattern_special_key"
             android:title="@string/haptic_special"
             android:summary="@string/haptic_pattern_summary" />
+        <SwitchPreferenceCompat
+            android:key="flick_stage_haptic_enabled"
+            android:defaultValue="false"
+            android:dependency="vibration_preference"
+            android:title="@string/haptic_stage_enabled"
+            android:summary="@string/haptic_stage_enabled_summary" />
+
+        <SwitchPreferenceCompat
+            android:key="flick_stage_haptic_suppression"
+            android:defaultValue="true"
+            android:dependency="flick_stage_haptic_enabled"
+            android:title="@string/haptic_stage_suppression"
+            android:summary="@string/haptic_stage_suppression_summary" />
+
+        <SeekBarPreference
+            android:key="flick_stage_haptic_suppression_ms"
+            android:defaultValue="40"
+            android:max="200"
+            android:dependency="flick_stage_haptic_suppression"
+            android:title="@string/haptic_stage_suppression_ms"
+            app:min="0"
+            app:seekBarIncrement="5"
+            app:showSeekBarValue="true" />
+
+        <ListPreference
+            android:key="flick_stage_haptic_change_mode"
+            android:defaultValue="application"
+            android:dependency="flick_stage_haptic_enabled"
+            android:title="@string/haptic_stage_change_mode"
+            android:entries="@array/haptic_stage_change_modes"
+            android:entryValues="@array/haptic_stage_change_values"
+            app:useSimpleSummaryProvider="true" />
+
+        <SeekBarPreference
+            android:key="flick_stage_haptic_delay_ms"
+            android:defaultValue="30"
+            android:max="200"
+            android:dependency="flick_stage_haptic_enabled"
+            android:title="@string/haptic_stage_delay_ms"
+            android:summary="@string/haptic_stage_delay_summary"
+            app:min="0"
+            app:seekBarIncrement="5"
+            app:showSeekBarValue="true" />
+
+        <Preference
+            android:key="custom_haptic_pattern_stage_advance"
+            android:dependency="flick_stage_haptic_enabled"
+            android:title="@string/haptic_stage_advance"
+            android:summary="@string/haptic_pattern_summary" />
+
+        <Preference
+            android:key="custom_haptic_pattern_stage_retreat"
+            android:dependency="flick_stage_haptic_enabled"
+            android:title="@string/haptic_stage_retreat"
+            android:summary="@string/haptic_pattern_summary" />
+
+        <Preference
+            android:key="custom_haptic_pattern_stage_change"
+            android:dependency="flick_stage_haptic_enabled"
+            android:title="@string/haptic_stage_change"
+            android:summary="@string/haptic_stage_change_summary" />
 
         <SwitchPreferenceCompat
             android:key="custom_haptic_media_usage"

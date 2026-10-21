@@ -34,6 +34,14 @@ class CustomHapticPlayer(
         playPattern(preferences.pattern(kind), useMediaUsage)
     }
 
+    /** Stage feedback also works with the existing press/release/both timing modes. */
+    fun playStage(kind: HapticPatternKind) {
+        require(kind in listOf(HapticPatternKind.STAGE_ADVANCE,
+            HapticPatternKind.STAGE_RETREAT, HapticPatternKind.STAGE_CHANGE))
+        if (!preferences.isStageEnabled()) return
+        preview(preferences.pattern(kind))
+    }
+
     /** Preview an unsaved editor draft, while respecting both vibration enable switches. */
     fun preview(pattern: HapticPattern) {
         if (!preferences.isVibrationEnabled() || !vibrator.hasVibrator()) return

@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.view
 
+import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
+import com.kazumaproject.custom_keyboard.haptics.twoStepHapticPath
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
@@ -88,6 +90,7 @@ class TfbiInputController(
     private var activeTfbiFlickStartPositionMode = TfbiFlickStartPositionMode.TOUCH_POINT
 
     var listener: TfbiListener? = null
+    var stageHaptics: FlickStageHapticFeedback? = null
     private var characterMapProvider: ((TfbiFlickDirection, TfbiFlickDirection) -> String)? = null
     private var longPressCharacterMapProvider: ((TfbiFlickDirection, TfbiFlickDirection) -> String)? = null
     private var attachedView: View? = null
@@ -181,6 +184,7 @@ class TfbiInputController(
     }
 
     fun cancel() {
+        stageHaptics?.end(this)
         listener?.onCanceled()
         activeGestureConfig = null
         clearLongPressCallback(attachedView)
@@ -196,18 +200,23 @@ class TfbiInputController(
         val view = attachedView ?: return false
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                stageHaptics?.begin(this)
                 handleTouchDown(event, view)
             }
 
             MotionEvent.ACTION_MOVE -> {
                 handleTouchMove(event, view)
+                stageHaptics?.update(this, twoStepHapticPath(
+                    firstFlickDirection.name, currentSecondFlickDirection.name))
             }
 
             MotionEvent.ACTION_UP -> {
+                stageHaptics?.end(this)
                 handleTouchUp(event)
             }
 
             MotionEvent.ACTION_CANCEL -> {
+                stageHaptics?.end(this)
                 isTouchActive = false
                 clearLongPressCallback(attachedView)
                 resetState()
