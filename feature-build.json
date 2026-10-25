@@ -1,0 +1,29 @@
+{
+  "baseSha": "a83b20478880662cb52e2ba0fa48910a9eeca012",
+  "featureRef": "feature/input-character-pop-animation",
+  "featureSha": "4d21a694c9a738a96cc1313983689dfd5912d184",
+  "infrastructureRef": "build/feature-apk-v1.7.133",
+  "infrastructureSha": "7534cd734cdb5af42be53c5ddde1b85fb787e109",
+  "appTestFilters": [
+    "*Independent*Test",
+    "*SmallTsu*",
+    "*VibrationTimingPolicyTest",
+    "*VibrationShortcutTest",
+    "*ShortcutActiveStateResolverTest",
+    "*ShortcutRepositoryVibrationTest",
+    "*ShortcutAdapterThemeColorTest",
+    "*SuggestionAdapterShortcutEntryClickTest",
+    "*ShortcutToolbarPresentationPolicyTest",
+    "*CustomHapticSettingsEntryPointTest",
+    "*CustomHapticBackupCompatibilityTest",
+    "*KeyboardLayout*Test",
+    "*Backup*Test",
+    "*Cursor*Test",
+    "*FlickPreview*Test",
+    "*MigrationTest",
+    "*Setting*Test"
+  ],
+  "deviceTestClasses": [
+    "com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest"
+  ]
+}

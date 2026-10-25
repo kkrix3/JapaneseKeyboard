@@ -230,7 +230,7 @@ class SmallTsuImeDeviceTest {
 
     @Test fun realIme_characterPopFollowsAcceptanceAndDoesNotBlockNextInput() {
         val context = ins.targetContext
-        check(context.packageName.endsWith(".preview.testbench"))
+        check(context.packageName.endsWith(".feature.testbench") || context.packageName.endsWith(".preview.testbench")) { "Use isolated disposable emulator testbench" }
         val target = "${context.packageName}/com.kazumaproject.markdownhelperkeyboard.ime_service.IMEService"
         val oldIme = shell("settings get secure default_input_method").trim()
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
@@ -313,7 +313,7 @@ class SmallTsuImeDeviceTest {
 
     @Test fun realIme_stageModesKeepInputAndSmallTsuWithIndependentRouting() {
         val context = ins.targetContext
-        check(context.packageName.endsWith(".preview.testbench"))
+        check(context.packageName.endsWith(".feature.testbench") || context.packageName.endsWith(".preview.testbench")) { "Use isolated disposable emulator testbench" }
         val target = "${context.packageName}/com.kazumaproject.markdownhelperkeyboard.ime_service.IMEService"
         val oldIme = shell("settings get secure default_input_method").trim()
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
