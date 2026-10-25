@@ -8,7 +8,7 @@ concurrency:
   group: input-character-pop-trial-apk
   cancel-in-progress: true
 env:
-  FEATURE_COMMIT: 1d1055f9e0af7393ce4a0dd43b7242e82d13f20c
+  FEATURE_COMMIT: 4d21a694c9a738a96cc1313983689dfd5912d184
 jobs:
   trial-apk:
     runs-on: ubuntu-24.04
