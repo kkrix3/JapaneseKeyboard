@@ -104,7 +104,12 @@ internal data class InputCharacterPopGlyph(
 /** A single non-interactive Drawable in the window overlay, shared by overlapping glyphs.
  * No View hierarchy or Animator is created per key. Frame callbacks stop when the list is empty.
  */
-internal class InputCharacterPop(private val owner: View) {
+internal class InputCharacterPop(
+    private val owner: View,
+    private val clockMillis: () -> Long = SystemClock::uptimeMillis,
+    private val requestFrame: (Choreographer.FrameCallback) -> Unit = { Choreographer.getInstance().postFrameCallback(it) },
+    private val cancelFrame: (Choreographer.FrameCallback) -> Unit = { Choreographer.getInstance().removeFrameCallback(it) },
+) {
     private data class Entry(val glyph: InputCharacterPopGlyph, val startedAt: Long)
     private val entries = ArrayList<Entry>(InputCharacterPopSpec.MAX_ACTIVE)
     private var host: View? = null
@@ -124,7 +129,7 @@ internal class InputCharacterPop(private val owner: View) {
 
     private val drawable = object : Drawable() {
         override fun draw(canvas: Canvas) {
-            val now = SystemClock.uptimeMillis()
+            val now = clockMillis()
             for (entry in entries) {
                 val t = (now - entry.startedAt).toFloat() / InputCharacterPopSpec.DURATION_MS
                 val glyph = entry.glyph
@@ -149,9 +154,9 @@ internal class InputCharacterPop(private val owner: View) {
         if (!owner.isAttachedToWindow || !owner.isShown) {
             clear()
         } else {
-            val now = SystemClock.uptimeMillis()
+            val now = clockMillis()
             entries.removeAll { now - it.startedAt >= InputCharacterPopSpec.DURATION_MS }
-            if (entries.isEmpty()) clear() else {
+            if (entries.isEmpty()) releaseLayer(invalidatePending = false) else {
                 drawable.invalidateSelf()
                 scheduleFrame()
             }
@@ -177,15 +182,17 @@ internal class InputCharacterPop(private val owner: View) {
                 target.addOnLayoutChangeListener(hostLayoutListener)
             }
             if (entries.size == InputCharacterPopSpec.MAX_ACTIVE) entries.removeAt(0)
-            entries.add(Entry(glyph, SystemClock.uptimeMillis()))
+            entries.add(Entry(glyph, clockMillis()))
             drawable.invalidateSelf()
             scheduleFrame()
         }
     }
 
-    fun clear() {
-        generation++
-        if (framePending) Choreographer.getInstance().removeFrameCallback(frame)
+    fun clear() = releaseLayer(invalidatePending = true)
+
+    private fun releaseLayer(invalidatePending: Boolean) {
+        if (invalidatePending) generation++
+        if (framePending) cancelFrame(frame)
         framePending = false
         entries.clear()
         host?.let {
@@ -198,6 +205,6 @@ internal class InputCharacterPop(private val owner: View) {
     private fun scheduleFrame() {
         if (framePending) return
         framePending = true
-        Choreographer.getInstance().postFrameCallback(frame)
+        requestFrame(frame)
     }
 }

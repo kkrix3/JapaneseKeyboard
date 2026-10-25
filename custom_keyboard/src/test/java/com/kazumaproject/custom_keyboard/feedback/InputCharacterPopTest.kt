@@ -22,6 +22,13 @@ import java.time.Duration
 @LooperMode(LooperMode.Mode.PAUSED)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class InputCharacterPopTest {
+    private var testTime = 0L
+    private var pendingFrame: android.view.Choreographer.FrameCallback? = null
+    private fun drawNextFrame() {
+        val callback = pendingFrame
+        pendingFrame = null
+        callback?.doFrame(testTime * 1_000_000L)
+    }
     @Test fun curvesHaveRequestedEndpointsAndNoOvershoot() {
         assertEquals(280L, InputCharacterPopSpec.DURATION_MS)
         assertEquals(1f, InputCharacterPopSpec.scale(0f), 0f)
@@ -64,11 +71,24 @@ class InputCharacterPopTest {
         repeat(20) { effect.prepare { glyph(owner, it) }!!.invoke() }
         assertEquals(InputCharacterPopSpec.MAX_ACTIVE, effect.activeCount)
         val first = effect.activeGlyphs.first()
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
+        testTime = 100L
+        drawNextFrame()
         assertEquals(first.centerX, effect.activeGlyphs.first().centerX, 0f)
         assertEquals(first.centerY, effect.activeGlyphs.first().centerY, 0f)
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(200))
+        testTime = 300L
+        drawNextFrame()
         assertEquals(0, effect.activeCount)
+    }
+
+    @Test fun olderAnimationExpiryDoesNotInvalidateLaterDeferredInput() = harness { owner, effect ->
+        effect.enabled = true
+        effect.prepare { glyph(owner, it) }!!.invoke()
+        val laterInput = effect.prepare { glyph(owner, it) }!!
+        testTime = 300L
+        drawNextFrame()
+        assertEquals(0, effect.activeCount)
+        laterInput()
+        assertEquals(1, effect.activeCount)
     }
 
     @Test fun disableInvalidatesOutstandingAcceptanceAndClearsActiveGlyphs() = harness { owner, effect ->
@@ -89,7 +109,7 @@ class InputCharacterPopTest {
         assertEquals(0, effect.activeCount)
         effect.prepare { glyph(owner, it) }!!.invoke()
         owner.visibility = View.GONE
-        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(32))
+        drawNextFrame()
         assertEquals(0, effect.activeCount)
     }
 
@@ -114,8 +134,9 @@ class InputCharacterPopTest {
         container.measure(View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(300, View.MeasureSpec.EXACTLY))
         container.layout(0, 0, 600, 300)
-        shadowOf(Looper.getMainLooper()).idle()
-        val effect = InputCharacterPop(owner)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
+        val effect = InputCharacterPop(owner, clockMillis = { testTime },
+            requestFrame = { pendingFrame = it }, cancelFrame = { pendingFrame = null })
         try { block(owner, effect) } finally { effect.clear(); activity.pause().stop().destroy() }
     }
 }
