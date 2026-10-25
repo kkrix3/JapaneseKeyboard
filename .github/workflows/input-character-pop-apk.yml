@@ -1,0 +1,82 @@
+name: Input character pop trial APK
+on:
+  push:
+    branches: [ci/input-character-pop-apk]
+permissions:
+  contents: read
+concurrency:
+  group: input-character-pop-trial-apk
+  cancel-in-progress: true
+env:
+  FEATURE_COMMIT: 60b924c787aea4a2fc6256cef45b4702cdff7819
+jobs:
+  trial-apk:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      ZENZ_DEBUG_NATIVE_ABIS: arm64-v8a
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ env.FEATURE_COMMIT }}
+          persist-credentials: false
+          submodules: recursive
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android dependencies
+        run: |
+          echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+      - name: Build isolated Full debug testbench
+        run: |
+          test "$(git rev-parse HEAD)" = "$FEATURE_COMMIT"
+          bash ./gradlew :app:assembleFullStandardDebug -PpreviewDeviceTest=true --no-daemon --console=plain --max-workers=2
+      - name: Inspect signed ARM64 trial APK
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, re, shutil, subprocess, zipfile
+          apk, = pathlib.Path('app/build/outputs/apk/fullStandard/debug').glob('*.apk')
+          sdk = pathlib.Path(os.environ['ANDROID_HOME']) / 'build-tools/36.0.0'
+          def run(*args):
+              return subprocess.check_output([str(a) for a in args], text=True)
+          badging = run(sdk / 'aapt', 'dump', 'badging', apk)
+          app_id = 'com.kazumaproject.markdownhelperkeyboard.preview.testbench'
+          assert f"name='{app_id}'" in badging.splitlines()[0]
+          assert 'application-debuggable' in badging
+          manifest = run(sdk / 'aapt', 'dump', 'xmltree', apk, 'AndroidManifest.xml')
+          assert 'com.kazumaproject.markdownhelperkeyboard.ime_service.IMEService' in manifest
+          assert 'android.permission.BIND_INPUT_METHOD' in manifest
+          authorities = re.findall(r'android:authorities[^=]*="([^"]+)"', manifest)
+          assert authorities and all(a.startswith(app_id + '.') for a in authorities), authorities
+          assert app_id + '.fileprovider' in authorities
+          certificate = run(sdk / 'apksigner', 'verify', '--verbose', '--print-certs', apk)
+          assert 'CN=Android Debug' in certificate
+          run(sdk / 'zipalign', '-c', '-P', '16', '4', apk)
+          with zipfile.ZipFile(apk) as z:
+              names = z.namelist()
+              assert 'lib/arm64-v8a/libzenz.so' in names
+              assert any(n.startswith('lib/arm64-v8a/') and 'litert' in n.lower() for n in names)
+              assert any(n.endswith('system.compact.kdict') for n in names)
+              assert any('ggml-model' in n and n.endswith('.gguf') for n in names)
+              assert not any(re.search(r'(?i)(keystore|\.(jks|p12|pfx|pem|key)$|local\.properties$)', n) for n in names)
+          out = pathlib.Path('trial-apk'); out.mkdir()
+          target = out / 'sumire-input-character-pop-full-arm64-debug.apk'
+          shutil.copyfile(apk, target)
+          meta = dict(sourceCommit=os.environ['FEATURE_COMMIT'], applicationId=app_id,
+              signing='disposable Android debug key', debuggable=True,
+              sha256=hashlib.sha256(target.read_bytes()).hexdigest(), authorities=authorities)
+          (out / 'metadata.json').write_text(json.dumps(meta, indent=2) + '\n')
+          (out / 'inspection.txt').write_text(badging + '\n' + manifest + '\n' + certificate)
+          (out / 'README.txt').write_text('ARM64 Full trial build. Install alongside Preview; enable this separate IME.\nThe app uses a disposable debug signing key, not the Preview distribution key.\nEnable Keyboard display > Touch effects > Input character pop animation (default OFF).\nSettings and learned data are separate from your normal Preview.\nSource: ' + os.environ['FEATURE_COMMIT'] + '\n')
+          print(json.dumps(meta, indent=2))
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sumire-input-character-pop-full-arm64-debug
+          path: trial-apk/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
