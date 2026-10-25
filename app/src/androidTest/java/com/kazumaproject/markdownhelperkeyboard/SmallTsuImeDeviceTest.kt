@@ -282,7 +282,12 @@ class SmallTsuImeDeviceTest {
                         if (action == MotionEvent.ACTION_DOWN) strokeDown = now
                         val location = IntArray(2).also(root::getLocationOnScreen)
                         val event = MotionEvent.obtain(strokeDown, now, action,
-                            rect.exactCenterX() - location[0], rect.exactCenterY() - location[1], 0)
+                            rect.exactCenterX(), rect.exactCenterY(), 0).apply {
+                            source = InputDevice.SOURCE_TOUCHSCREEN
+                            // Preserve screen-space rawX/rawY used by the real IME hit test,
+                            // while dispatching window-local x/y (same as tapPair above).
+                            offsetLocation(-location[0].toFloat(), -location[1].toFloat())
+                        }
                         try { check(root.dispatchTouchEvent(event)) } finally { event.recycle() }
                     }
                     send(MotionEvent.ACTION_DOWN)
