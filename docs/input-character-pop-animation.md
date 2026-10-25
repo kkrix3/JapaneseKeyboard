@@ -84,3 +84,11 @@ They cannot certify perceived smoothness, OLED contrast, GPU frame time, or late
 on a physical device. Full Preview CI builds/inspects an unsigned APK for the PR.
 The existing trusted Preview signing job permits only owner-dispatched `preview`;
 this feature does not alter that policy or signing secrets.
+
+A separate `ci/input-character-pop-apk` verification branch can build the existing
+`-PpreviewDeviceTest=true` Full Standard Debug variant at a pinned feature commit.
+Its `com.kazumaproject.markdownhelperkeyboard.preview.testbench` identity coexists
+with Preview, and it uses the runner's disposable Android debug key. This is an
+ARM64 trial APK, **not** a signed Preview update; settings/learned data are separate.
+Install, select this separate IME, then enable the animation setting. A later runner
+may use a different debug key, requiring removal of the old disposable testbench.

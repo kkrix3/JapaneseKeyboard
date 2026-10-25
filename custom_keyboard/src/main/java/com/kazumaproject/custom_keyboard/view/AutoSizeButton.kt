@@ -230,12 +230,24 @@ class AutoSizeButton @JvmOverloads constructor(
         // A visible, single-line key label provides its exact baseline. Otherwise use the key's
         // center with its font, including skins that hide the main text and draw a center guide.
         InputCharacterPopGlyph.fromTextView(this, host, selectedText)?.let { return it }
-        val copy = Paint(paint).apply {
-            color = if (Color.alpha(currentTextColor) == 0) flickGuideTextColor else currentTextColor
+        val segmentedPaint = findSegmentedBackground(background)?.inputCharacterPopPaint()
+        val copy = (segmentedPaint ?: Paint(paint)).apply {
+            if (segmentedPaint == null) {
+                color = if (Color.alpha(currentTextColor) == 0) flickGuideTextColor else currentTextColor
+            }
             textAlign = Paint.Align.CENTER
         }
         return InputCharacterPopGlyph.capture(this, host, selectedText, copy,
             width / 2f, height / 2f - (copy.ascent() + copy.descent()) / 2f)
+    }
+
+    private fun findSegmentedBackground(drawable: Drawable?): SegmentedBackgroundDrawable? = when (drawable) {
+        is SegmentedBackgroundDrawable -> drawable
+        is InsetDrawable -> findSegmentedBackground(drawable.drawable)
+        is LayerDrawable -> (0 until drawable.numberOfLayers).firstNotNullOfOrNull {
+            findSegmentedBackground(drawable.getDrawable(it))
+        }
+        else -> null
     }
 
     private fun spToPx(sp: Float): Float {

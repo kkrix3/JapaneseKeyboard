@@ -228,6 +228,84 @@ class SmallTsuImeDeviceTest {
         SystemClock.sleep(250)
     }
 
+    @Test fun realIme_characterPopFollowsAcceptanceAndDoesNotBlockNextInput() {
+        val context = ins.targetContext
+        check(context.packageName.endsWith(".preview.testbench"))
+        val target = "${context.packageName}/com.kazumaproject.markdownhelperkeyboard.ime_service.IMEService"
+        val oldIme = shell("settings get secure default_input_method").trim()
+        val prefs = PreferenceManager.getDefaultSharedPreferences(context)
+        automation.serviceInfo = automation.serviceInfo.apply {
+            flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
+        fun flickView(root: View): FlickKeyboardView? {
+            if (!root.isShown) return null
+            if (root is FlickKeyboardView) return root
+            if (root is ViewGroup) for (i in 0 until root.childCount) {
+                flickView(root.getChildAt(i))?.let { return it }
+            }
+            return null
+        }
+        // Inspect synchronously with the real input dispatch; waiting for UI idle could consume
+        // the entire 280 ms animation and make a correct implementation look inactive.
+        fun glyphTexts(view: FlickKeyboardView): List<String> {
+            val effect = FlickKeyboardView::class.java.getDeclaredField("inputCharacterPop")
+                .apply { isAccessible = true }.get(view) ?: return emptyList()
+            val entries = effect.javaClass.getDeclaredField("entries").apply { isAccessible = true }
+                .get(effect) as List<*>
+            return entries.map { entry ->
+                val glyph = entry!!.javaClass.getDeclaredField("glyph").apply { isAccessible = true }.get(entry)
+                glyph.javaClass.getDeclaredField("text").apply { isAccessible = true }.get(glyph) as String
+            }
+        }
+        try {
+            check(prefs.edit()
+                .putString("keyboard_order_preference", "[\"SUMIRE\"]")
+                .putBoolean("save_last_used_keyboard", false)
+                .putBoolean("keyboard_floating_preference", false)
+                .putString("sumire_keyboard_style_preference", "sumire")
+                .putString("sumire_input_method_preference", "flick")
+                .putBoolean("flick_input_only_preference", true)
+                .putBoolean("flick_editor_preview_preference", false)
+                .putBoolean("live_conversion_preference", false)
+                .putBoolean("double_tap_small_tsu_enabled", false)
+                .putBoolean("input_character_pop_animation_preference", true).commit())
+            shell("ime enable $target"); shell("ime set $target")
+            launchEditor().use { editor ->
+                awaitStableKeyboard()
+                val rect = key("あ")
+                ins.runOnMainSync {
+                    val root = keyboardRootAt(rect)
+                    val keyboard = checkNotNull(flickView(root))
+                    var strokeDown = 0L
+                    fun send(action: Int) {
+                        val now = SystemClock.uptimeMillis()
+                        if (action == MotionEvent.ACTION_DOWN) strokeDown = now
+                        val location = IntArray(2).also(root::getLocationOnScreen)
+                        val event = MotionEvent.obtain(strokeDown, now, action,
+                            rect.exactCenterX() - location[0], rect.exactCenterY() - location[1], 0)
+                        try { check(root.dispatchTouchEvent(event)) } finally { event.recycle() }
+                    }
+                    send(MotionEvent.ACTION_DOWN)
+                    assertTrue(glyphTexts(keyboard).isEmpty())
+                    send(MotionEvent.ACTION_CANCEL)
+                    assertTrue(glyphTexts(keyboard).isEmpty())
+                    repeat(2) {
+                        send(MotionEvent.ACTION_DOWN); send(MotionEvent.ACTION_UP)
+                    }
+                    assertEquals(listOf("あ", "あ"), glyphTexts(keyboard))
+                    check(prefs.edit().putBoolean("input_character_pop_animation_preference", false).commit())
+                    assertTrue(glyphTexts(keyboard).isEmpty())
+                    send(MotionEvent.ACTION_DOWN); send(MotionEvent.ACTION_UP)
+                    assertTrue(glyphTexts(keyboard).isEmpty())
+                }
+                awaitLiveText(editor, "あああ", "pop ON/OFF and cancel preserve exact input")
+            }
+        } finally {
+            prefs.edit().putBoolean("input_character_pop_animation_preference", false).commit()
+            if (oldIme.isNotEmpty() && oldIme != "null") shell("ime set $oldIme")
+        }
+    }
+
     @Test fun realIme_stageModesKeepInputAndSmallTsuWithIndependentRouting() {
         val context = ins.targetContext
         check(context.packageName.endsWith(".preview.testbench"))

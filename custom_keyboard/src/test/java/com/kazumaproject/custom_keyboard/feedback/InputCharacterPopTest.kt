@@ -12,13 +12,15 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
 import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [24, 35])
+@Config(sdk = [28, 35])
 @LooperMode(LooperMode.Mode.PAUSED)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class InputCharacterPopTest {
     @Test fun curvesHaveRequestedEndpointsAndNoOvershoot() {
         assertEquals(280L, InputCharacterPopSpec.DURATION_MS)
@@ -112,6 +114,7 @@ class InputCharacterPopTest {
         container.measure(View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(300, View.MeasureSpec.EXACTLY))
         container.layout(0, 0, 600, 300)
+        shadowOf(Looper.getMainLooper()).idle()
         val effect = InputCharacterPop(owner)
         try { block(owner, effect) } finally { effect.clear(); activity.pause().stop().destroy() }
     }

@@ -42,6 +42,8 @@ class SegmentedBackgroundDrawable(
         }
 
     // Paint for the first (or single) line of text
+    internal fun inputCharacterPopPaint(): Paint = Paint(textPaint)
+
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = textColor
         textAlign = Paint.Align.CENTER

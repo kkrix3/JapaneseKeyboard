@@ -98,6 +98,7 @@ class SmallTsuTouchTest {
             view.onTouchEvent(e);e.recycle()
         }
     }
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     @Test fun popKeepsSelectedTextWhileSmallTsuAndReleaseHapticsRemainImmediate() {
         val h = Harness(pop = true)
         h.tap(100); h.tap(200)

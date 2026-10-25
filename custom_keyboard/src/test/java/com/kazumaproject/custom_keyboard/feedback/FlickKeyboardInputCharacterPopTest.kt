@@ -19,6 +19,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.LooperMode
 import org.robolectric.util.ReflectionHelpers
@@ -27,8 +28,9 @@ import java.time.Duration
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 @LooperMode(LooperMode.Mode.PAUSED)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class FlickKeyboardInputCharacterPopTest {
-    private class Harness(type: KeyType = KeyType.CROSS_FLICK, enabled: Boolean = true) : AutoCloseable {
+    private class Harness(type: KeyType = KeyType.PETAL_FLICK, enabled: Boolean = true) : AutoCloseable {
         val activity = Robolectric.buildActivity(Activity::class.java).setup()
         val context = ContextThemeWrapper(activity.get(), com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar)
         val view = FlickKeyboardView(context)
@@ -121,13 +123,21 @@ class FlickKeyboardInputCharacterPopTest {
     }
 
     @Test fun commonCommitSupportsNormalStandardPetalCircularAndTwoStepKeys() {
-        for (type in listOf(KeyType.NORMAL, KeyType.STANDARD_FLICK, KeyType.PETAL_FLICK,
+        for (type in listOf(KeyType.NORMAL, KeyType.STANDARD_FLICK, KeyType.CROSS_FLICK, KeyType.PETAL_FLICK,
             KeyType.CIRCULAR_FLICK, KeyType.CENTER_GUIDE_FLICK, KeyType.TWO_STEP_FLICK,
             KeyType.STICKY_TWO_STEP_FLICK, KeyType.HIERARCHICAL_FLICK)) Harness(type).use { h ->
             h.tap()
             assertEquals("type=$type", listOf(KeyAction.Text("あ")), h.actions)
             assertEquals("type=$type", 1, h.count)
         }
+    }
+
+    @Test fun standardFlickUsesTheSegmentedLabelsPaintInsteadOfTransparentButtonText() = Harness(KeyType.STANDARD_FLICK).use { h ->
+        val background = h.view.getChildAt(0).background as com.kazumaproject.custom_keyboard.layout.SegmentedBackgroundDrawable
+        h.tap()
+        val glyph = h.effect!!.activeGlyphs.single()
+        assertEquals(background.inputCharacterPopPaint().color, glyph.paint.color)
+        assertEquals(background.inputCharacterPopPaint().textSize, glyph.paint.textSize, 0f)
     }
 
     @Test fun fastNextKeyInputsAreNotBlockedAndOlderPopsOverlap() = Harness().use { h ->
@@ -169,12 +179,12 @@ class FlickKeyboardInputCharacterPopTest {
                 FlickDirection.UP_RIGHT_FAR to FlickAction.Input("え"),
                 FlickDirection.DOWN to FlickAction.Input("お"))
             return KeyboardLayout(
-                keys = listOf(KeyData("あ", 0, 0, type != KeyType.NORMAL, KeyAction.Text("あ"), keyId = "a", keyType = type)),
-                flickKeyMaps = mapOf("a" to listOf(map)),
+                keys = listOf(KeyData("あ", 0, 0, type != KeyType.NORMAL, KeyAction.Text("あ"), keyId = "あ", keyType = type)),
+                flickKeyMaps = mapOf("あ" to listOf(map)),
                 columnCount = 1, rowCount = 1,
-                hierarchicalFlickMaps = mapOf("a" to TfbiFlickNode.StatefulKey(
+                hierarchicalFlickMaps = mapOf("あ" to TfbiFlickNode.StatefulKey(
                     normalMap = mapOf(TfbiFlickDirection.TAP to TfbiFlickNode.Input("あ")), label = "あ")),
-                twoStepFlickKeyMaps = mapOf("a" to mapOf(TfbiFlickDirection.TAP to mapOf(TfbiFlickDirection.TAP to "あ"))))
+                twoStepFlickKeyMaps = mapOf("あ" to mapOf(TfbiFlickDirection.TAP to mapOf(TfbiFlickDirection.TAP to "あ"))))
         }
     }
 }
