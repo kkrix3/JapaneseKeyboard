@@ -101,6 +101,8 @@ import com.kazumaproject.core.domain.flick.FlickTextPreviewEmitter
 import com.kazumaproject.core.domain.flick.FlickTextPreviewListener
 import com.kazumaproject.core.domain.flick.FlickTextSelection
 import com.kazumaproject.core.domain.small_tsu.KanaGestureObserver
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPop
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
 import java.util.IdentityHashMap
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -113,6 +115,7 @@ class FlickKeyboardView @JvmOverloads constructor(
 
     override fun setKeyboardFont(snapshot: KeyboardFontSnapshot) {
         KeyboardFontApplicator.track(this)
+        inputCharacterPop?.clear()
         keyboardFontSnapshot = snapshot
         for (index in 0 until childCount) {
             KeyboardFontApplicator.applyToKeyboardViews(getChildAt(index), snapshot)
@@ -133,6 +136,13 @@ class FlickKeyboardView @JvmOverloads constructor(
         fun onAction(action: KeyAction, isFlick: Boolean)
         fun onCommittedAction(action: KeyAction, isFlick: Boolean, hapticContext: InputHapticContext) {
             onAction(action, isFlick)
+        }
+        /** Hosts acknowledge accepted text after processing it. The default never guesses success. */
+        fun onCommittedTextAction(
+            action: KeyAction.Text, isFlick: Boolean, hapticContext: InputHapticContext,
+            onAccepted: () -> Unit
+        ) {
+            onCommittedAction(action, isFlick, hapticContext)
         }
         fun onActionLongPress(action: KeyAction)
         fun onActionUpAfterLongPress(action: KeyAction)
@@ -160,6 +170,37 @@ class FlickKeyboardView @JvmOverloads constructor(
     private var kanaLayoutGeneration = 0L
     private fun kanaKey(key: KeyData) = "${System.identityHashCode(this)}:$kanaLayoutGeneration:${key.keyId ?: "${key.row}:${key.column}:${key.keyType}"}"
     private var listener: OnKeyboardActionListener? = null
+    private var inputCharacterPop: InputCharacterPop? = null
+
+    fun setInputCharacterPopEnabled(enabled: Boolean) {
+        if (enabled && inputCharacterPop == null) inputCharacterPop = InputCharacterPop(this)
+        inputCharacterPop?.enabled = enabled
+    }
+
+    private fun prepareInputCharacterPop(keyData: KeyData, action: KeyAction): (() -> Unit)? {
+        val effect = inputCharacterPop?.takeIf { it.enabled } ?: return null
+        if (action !is KeyAction.Text || keyData.isSpecialKey ||
+            keyData.textInputBehavior == KeyTextInputBehavior.TOGGLE ||
+            keyData.effectiveDoubleTapBinding(action) != null) return null
+        val info = keyInfos.firstOrNull { it.keyData == keyData } ?: return null
+        val text = transformInputTextForDisplay(action.text)
+        return effect.prepare { host ->
+            val popup = (info.controller as? CrossFlickInputController)
+                ?.captureInputCharacterPop(host, text)
+            popup ?: (info.view as? AutoSizeButton)?.captureInputCharacterPop(host, text)
+        }
+    }
+
+    private fun dispatchWithInputCharacterPop(
+        action: KeyAction, isFlick: Boolean, hapticContext: InputHapticContext,
+        onAccepted: (() -> Unit)?
+    ) {
+        if (action is KeyAction.Text && onAccepted != null) {
+            listener?.onCommittedTextAction(action, isFlick, hapticContext, onAccepted)
+        } else {
+            listener?.onCommittedAction(action, isFlick, hapticContext)
+        }
+    }
     private val flickTextPreviewEmitter = FlickTextPreviewEmitter()
     private var previewKeyData: KeyData? = null
     private var independentMultiTouchForCurrentGesture = false
@@ -575,6 +616,7 @@ class FlickKeyboardView @JvmOverloads constructor(
         borderWidth: Int,
         skinId: KeyboardSkinId = KeyboardSkinId.DEFAULT
     ) {
+        inputCharacterPop?.clear()
         val renderConfigurationChanged =
             this.keyboardSkinId != skinId ||
             this.themeMode != themeMode ||
@@ -697,6 +739,7 @@ class FlickKeyboardView @JvmOverloads constructor(
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setKeyboard(layout: KeyboardLayout, forceRebuild: Boolean) {
+        inputCharacterPop?.clear()
         val expectedChildCount = if (layout.items.isNotEmpty()) {
             layout.items.size
         } else {
@@ -2827,6 +2870,7 @@ class FlickKeyboardView @JvmOverloads constructor(
         kanaTap: Boolean = !isFlick,
         hapticContext: InputHapticContext = InputHapticContext(),
     ) {
+        val acceptedPop = prepareInputCharacterPop(keyData, action)
         val dispatch = dispatch@{
             val toggleValues = if (
                 !isFlick &&
@@ -2852,7 +2896,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                 return@dispatch
             }
             if (isFlick) {
-                dispatchNonTapActionWithoutPreviewCancel(action, isFlick = true, hapticContext = hapticContext)
+                doubleTapActionDispatcher.interrupt()
+                dispatchWithInputCharacterPop(action, true, hapticContext, acceptedPop)
             } else {
                 doubleTapActionDispatcher.onCommittedTap(
                     keyIdentity = keyData.keyId
@@ -2860,7 +2905,7 @@ class FlickKeyboardView @JvmOverloads constructor(
                     normalAction = action,
                     binding = keyData.effectiveDoubleTapBinding(action),
                     dispatch = { resolvedAction ->
-                        listener?.onCommittedAction(resolvedAction, false, hapticContext)
+                        dispatchWithInputCharacterPop(resolvedAction, false, hapticContext, acceptedPop)
                     }
                 )
             }
@@ -3685,6 +3730,7 @@ class FlickKeyboardView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        inputCharacterPop?.clear()
         kanaGestureObserver?.cancel()
         controllerRebindPending = true
         doubleTapActionDispatcher.cancel()
@@ -3697,7 +3743,10 @@ class FlickKeyboardView @JvmOverloads constructor(
 
     override fun onVisibilityChanged(changedView: View, visibility: Int) {
         super.onVisibilityChanged(changedView, visibility)
-        if (visibility != View.VISIBLE) kanaGestureObserver?.cancel()
+        if (visibility != View.VISIBLE) {
+            inputCharacterPop?.clear()
+            kanaGestureObserver?.cancel()
+        }
         if (changedView == this && visibility != View.VISIBLE) {
             doubleTapActionDispatcher.cancel()
             cancelTextPreview()
@@ -3709,7 +3758,13 @@ class FlickKeyboardView @JvmOverloads constructor(
         }
     }
 
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        if (changed) inputCharacterPop?.clear()
+        super.onLayout(changed, left, top, right, bottom)
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration?) {
+        inputCharacterPop?.clear()
         super.onConfigurationChanged(newConfig)
     }
 

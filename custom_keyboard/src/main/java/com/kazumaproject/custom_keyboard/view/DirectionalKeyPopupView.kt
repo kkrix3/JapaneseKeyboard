@@ -18,6 +18,8 @@ import com.kazumaproject.core.ui.font.KeyboardFontApplicator
 import com.kazumaproject.core.ui.font.KeyboardFontSnapshot
 import com.kazumaproject.custom_keyboard.data.FlickDirection
 import com.kazumaproject.custom_keyboard.data.FlickPopupColorTheme
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
+import android.view.View
 import kotlin.math.min
 
 /**
@@ -153,6 +155,35 @@ class DirectionalKeyPopupView(context: Context) : AppCompatTextView(context), Ke
         val textY = h / 2f + textBounds.height() / 2f
 
         canvas.drawText(textToDraw, textX, textY, textPaint)
+    }
+
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        if (text.toString() != selectedText) return null
+        val copy = Paint(paint).apply { textAlign = Paint.Align.CENTER; color = currentTextColor }
+        val skin = KeyboardSkinRegistry.find(skinId)
+        val direction = currentDirection.skinDirection()
+        val x: Float
+        val baseline: Float
+        if (skin != null) {
+            copy.color = skin.palette.text
+            x = width * when (direction) {
+                com.kazumaproject.core.ui.skin.PopupDirection.LEFT -> 1f / 3
+                com.kazumaproject.core.ui.skin.PopupDirection.RIGHT -> 2f / 3
+                else -> .5f
+            }
+            val y = height * when (direction) {
+                com.kazumaproject.core.ui.skin.PopupDirection.TOP -> 1f / 3
+                com.kazumaproject.core.ui.skin.PopupDirection.BOTTOM -> 2f / 3
+                else -> .5f
+            }
+            baseline = y - (copy.ascent() + copy.descent()) / 2f
+        } else {
+            val ink = Rect()
+            copy.getTextBounds(selectedText, 0, selectedText.length, ink)
+            x = width / 2f
+            baseline = height / 2f + ink.height() / 2f
+        }
+        return InputCharacterPopGlyph.capture(this, host, selectedText, copy, x, baseline)
     }
 
     private fun updatePath(w: Float, h: Float) {

@@ -1935,4 +1935,6 @@ ABC abc 0123456789　ＡＢＣ　１２３４５
     <string name="dictionary_browser_empty">該当する単語がありません。</string>
     <string name="dictionary_browser_error">辞書を読み込めませんでした。辞書ファイルを確認して再試行してください。</string>
     <string name="dictionary_browser_retry">再試行</string>
+    <string name="input_character_pop_animation_title">入力文字の浮き上がりアニメーション</string>
+    <string name="input_character_pop_animation_summary">スミレ・カスタムフリックキーボードで、入力した文字をその場で拡大しながらふわっと消します。</string>
 </resources>

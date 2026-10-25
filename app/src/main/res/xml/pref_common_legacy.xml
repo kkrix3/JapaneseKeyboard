@@ -199,6 +199,12 @@
 
         <PreferenceCategory android:title="@string/keyboard_touch_effect_category_title">
 
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_animation_title"
+            android:summary="@string/input_character_pop_animation_summary" />
+
             <ListPreference
                 android:defaultValue="none"
                 android:entries="@array/keyboard_touch_effect_type_entries"

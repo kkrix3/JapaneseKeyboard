@@ -2,6 +2,7 @@ package com.kazumaproject.custom_keyboard.controller
 
 import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import android.annotation.SuppressLint
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
 import android.content.Context
 import android.graphics.PointF
 import android.view.MotionEvent
@@ -794,6 +795,15 @@ class CrossFlickInputController(
     }
 
     // ACTION・TEXT 両モードのポップアップをすべて閉じる。
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        currentVisibleDirectionalPopup?.takeIf { popupOverlay.isShowing(it) }?.let {
+            it.captureInputCharacterPop(host, selectedText)?.let { glyph -> return glyph }
+        }
+        return if (popupOverlay.isShowing(gridPopupView)) {
+            gridPopupView.captureInputCharacterPop(host, selectedText)
+        } else null
+    }
+
     fun dismissAllPopups(clearDirectionalCache: Boolean = false) {
         dismissAllActionPopups()
         dismissDirectionalPopups(clearCache = clearDirectionalCache)

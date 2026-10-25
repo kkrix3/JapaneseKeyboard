@@ -15,6 +15,8 @@ import com.kazumaproject.core.ui.font.KeyboardFontAware
 import com.kazumaproject.core.ui.font.KeyboardFontApplicator
 import com.kazumaproject.core.ui.font.KeyboardFontSnapshot
 import com.kazumaproject.custom_keyboard.layout.SegmentedBackgroundDrawable
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
+import android.view.View
 import kotlin.math.min
 
 class AutoSizeButton @JvmOverloads constructor(
@@ -222,6 +224,18 @@ class AutoSizeButton @JvmOverloads constructor(
 
     private fun shouldDrawCenterTap(labels: FlickGuideLabels): Boolean {
         return labels.tap.isNotEmpty() && Color.alpha(currentTextColor) == 0
+    }
+
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        // A visible, single-line key label provides its exact baseline. Otherwise use the key's
+        // center with its font, including skins that hide the main text and draw a center guide.
+        InputCharacterPopGlyph.fromTextView(this, host, selectedText)?.let { return it }
+        val copy = Paint(paint).apply {
+            color = if (Color.alpha(currentTextColor) == 0) flickGuideTextColor else currentTextColor
+            textAlign = Paint.Align.CENTER
+        }
+        return InputCharacterPopGlyph.capture(this, host, selectedText, copy,
+            width / 2f, height / 2f - (copy.ascent() + copy.descent()) / 2f)
     }
 
     private fun spToPx(sp: Float): Float {
