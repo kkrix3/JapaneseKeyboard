@@ -115,7 +115,7 @@ class FlickKeyboardView @JvmOverloads constructor(
 
     override fun setKeyboardFont(snapshot: KeyboardFontSnapshot) {
         KeyboardFontApplicator.track(this)
-        inputCharacterPop?.clear()
+        if (keyboardFontSnapshot != snapshot) inputCharacterPop?.clear()
         keyboardFontSnapshot = snapshot
         for (index in 0 until childCount) {
             KeyboardFontApplicator.applyToKeyboardViews(getChildAt(index), snapshot)
@@ -185,8 +185,13 @@ class FlickKeyboardView @JvmOverloads constructor(
         val info = keyInfos.firstOrNull { it.keyData == keyData } ?: return null
         val text = transformInputTextForDisplay(action.text)
         return effect.prepare { host ->
-            val popup = (info.controller as? CrossFlickInputController)
-                ?.captureInputCharacterPop(host, text)
+            val popup = when (val controller = info.controller) {
+                is CrossFlickInputController -> controller.captureInputCharacterPop(host, text)
+                is TfbiInputController -> controller.captureInputCharacterPop(host, text)
+                is TfbiStickyFlickController -> controller.captureInputCharacterPop(host, text)
+                is TfbiHierarchicalFlickController -> controller.captureInputCharacterPop(host, text)
+                else -> null
+            }
             popup ?: (info.view as? AutoSizeButton)?.captureInputCharacterPop(host, text)
         }
     }
@@ -616,7 +621,6 @@ class FlickKeyboardView @JvmOverloads constructor(
         borderWidth: Int,
         skinId: KeyboardSkinId = KeyboardSkinId.DEFAULT
     ) {
-        inputCharacterPop?.clear()
         val renderConfigurationChanged =
             this.keyboardSkinId != skinId ||
             this.themeMode != themeMode ||
@@ -648,6 +652,7 @@ class FlickKeyboardView @JvmOverloads constructor(
         this.liquidGlassKeyAlphaEnable = liquidGlassKeyAlphaEnable
         this.borderWidth = borderWidth
         if (renderConfigurationChanged) {
+            inputCharacterPop?.clear()
             keyboardRenderRevision += 1
         }
 
@@ -739,7 +744,6 @@ class FlickKeyboardView @JvmOverloads constructor(
 
     @SuppressLint("ClickableViewAccessibility")
     private fun setKeyboard(layout: KeyboardLayout, forceRebuild: Boolean) {
-        inputCharacterPop?.clear()
         val expectedChildCount = if (layout.items.isNotEmpty()) {
             layout.items.size
         } else {
@@ -756,6 +760,7 @@ class FlickKeyboardView @JvmOverloads constructor(
             restoreInputControllersIfNeeded()
             return
         }
+        inputCharacterPop?.clear()
         Log.d("FlickKeyboardView", "setKeyboard (Full Rebuild)")
         kanaLayoutGeneration++
         kanaGestureObserver?.cancel()
@@ -3756,11 +3761,6 @@ class FlickKeyboardView @JvmOverloads constructor(
         } else if (changedView == this && visibility == View.VISIBLE) {
             restoreInputControllersIfNeeded()
         }
-    }
-
-    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
-        if (changed) inputCharacterPop?.clear()
-        super.onLayout(changed, left, top, right, bottom)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration?) {

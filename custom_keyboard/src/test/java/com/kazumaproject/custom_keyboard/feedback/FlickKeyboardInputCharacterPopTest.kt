@@ -90,6 +90,15 @@ class FlickKeyboardInputCharacterPopTest {
         assertTrue(h.previews.any { it is FlickTextPreviewEvent.Finished })
     }
 
+    @Test fun unchangedKeyboardReapplicationDuringFirstInputDoesNotInvalidateAcceptance() = Harness().use { h ->
+        h.atDispatch = { h.view.setKeyboard(layout(KeyType.PETAL_FLICK)) }
+        h.tap()
+        assertEquals(listOf(KeyAction.Text("あ")), h.actions)
+        assertEquals(1, h.count)
+        h.view.setKeyboard(layout(KeyType.PETAL_FLICK))
+        assertEquals(1, h.count)
+    }
+
     @Test fun rejectedInputDoesNotPopEvenThoughPreviewFinished() = Harness().use { h ->
         h.accept = false; h.tap()
         assertTrue(h.previews.any { it is FlickTextPreviewEvent.Finished })
@@ -120,6 +129,23 @@ class FlickKeyboardInputCharacterPopTest {
         h.send(MotionEvent.ACTION_UP)
         assertEquals(listOf(KeyAction.Text("あ")), h.actions)
         assertEquals(1, h.count)
+    }
+
+    @Test fun twoStepPopUsesTheVisibleGridOrGuideInsteadOfTheKeyCenter() {
+        for (mode in com.kazumaproject.core.data.popup.TfbiPopupPresentationMode.entries)
+        for (type in listOf(KeyType.TWO_STEP_FLICK, KeyType.STICKY_TWO_STEP_FLICK)) Harness(type).use { h ->
+            h.view.setTfbiPopupPresentationMode(mode)
+            h.send(MotionEvent.ACTION_DOWN)
+            h.send(MotionEvent.ACTION_MOVE, dy = -110f)
+            // Let the guide attach/layout before committing, just as in a visible flick.
+            shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(20))
+            h.send(MotionEvent.ACTION_UP, dy = -110f)
+            assertEquals("type=$type", listOf(KeyAction.Text("う")), h.actions)
+            val glyph = h.effect!!.activeGlyphs.single()
+            val fallback = (h.view.getChildAt(0) as com.kazumaproject.custom_keyboard.view.AutoSizeButton)
+                .captureInputCharacterPop(h.view.rootView, "う")!!
+            assertTrue("type=$type mode=$mode must use the popup's selected text, not key center", kotlin.math.abs(glyph.centerY - fallback.centerY) > 20f)
+        }
     }
 
     @Test fun commonCommitSupportsNormalStandardPetalCircularAndTwoStepKeys() {
@@ -184,7 +210,9 @@ class FlickKeyboardInputCharacterPopTest {
                 columnCount = 1, rowCount = 1,
                 hierarchicalFlickMaps = mapOf("あ" to TfbiFlickNode.StatefulKey(
                     normalMap = mapOf(TfbiFlickDirection.TAP to TfbiFlickNode.Input("あ")), label = "あ")),
-                twoStepFlickKeyMaps = mapOf("あ" to mapOf(TfbiFlickDirection.TAP to mapOf(TfbiFlickDirection.TAP to "あ"))))
+                twoStepFlickKeyMaps = mapOf("あ" to mapOf(
+                    TfbiFlickDirection.TAP to mapOf(TfbiFlickDirection.TAP to "あ"),
+                    TfbiFlickDirection.UP to mapOf(TfbiFlickDirection.TAP to "う", TfbiFlickDirection.UP to "う"))))
         }
     }
 }

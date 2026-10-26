@@ -9,7 +9,7 @@
 | 役割 | ref | SHA |
 | --- | --- | --- |
 | 基点 | preview | a83b20478880662cb52e2ba0fa48910a9eeca012 |
-| 機能 | feature/input-character-pop-animation | 4d21a694c9a738a96cc1313983689dfd5912d184 |
+| 機能 | feature/input-character-pop-animation | 52feecb3157ca63d3c73bc0e5d83c1c303ff0dae |
 | 配布基盤 | build/feature-apk-v1.7.133 | 7534cd734cdb5af42be53c5ddde1b85fb787e109 |
 
 機能と配布基盤を通常mergeした検証専用ブランチで、previewへのマージではない。
@@ -60,3 +60,10 @@ versionCodeで更新し、設定保持・各IMEの共存は実機で確認する
 設定 → キーボード表示 → タッチエフェクト → 入力文字の浮き上がりアニメーションをONにする。
 初期OFF、280ms、100%→180%、XY固定、最初の42ms後から透明化。
 機能の対応範囲と見た目の確認項目は [機能仕様](../input-character-pop-animation.md) を参照。
+
+## 実機フィードバック後の確認
+
+未確定一文字目で候補欄が現れても文字が消えないこと、二段フリックの3×3/上部ガイドで
+選択文字の位置から拡大することを確認する。時間・拡大率・入力経路は変更していない。
+端末テストは入力直後の状態だけでなく、一文字目の描画時まで演出が残ることも検査する。
+旧コミットの署名済みAPKにはこの修正が含まれないため、このブランチで新規Run workflowを行う。

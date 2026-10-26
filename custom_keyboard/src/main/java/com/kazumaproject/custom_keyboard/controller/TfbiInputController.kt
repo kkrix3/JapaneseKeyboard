@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.view
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
+
 import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import com.kazumaproject.custom_keyboard.haptics.twoStepHapticPath
 import android.annotation.SuppressLint
@@ -532,6 +534,13 @@ class TfbiInputController(
         val normal = characterMapProvider?.invoke(first, second).orEmpty()
         val longPress = longPressCharacterMapProvider?.invoke(first, second).orEmpty()
         return if (isLongPressModeActive && longPress.isNotEmpty()) longPress else normal
+    }
+
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        guidePopupHost.captureInputCharacterPop(host, selectedText)?.let { return it }
+        return if (popupWindow?.isShowing == true) {
+            popupView?.captureInputCharacterPop(host, selectedText)
+        } else null
     }
 
     private fun resetState() {

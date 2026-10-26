@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.view
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
+
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
@@ -270,6 +272,23 @@ class TfbiFlickPopupView(context: Context) : View(context), KeyboardFontAware {
                 drawTextCentered(canvas, inputTextTransform(label), rect)
             }
         }
+    }
+
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        val characters = petalCharacters + (TfbiFlickDirection.TAP to tapCharacter)
+        // Prefer the selected cell when labels are duplicated. ACTION_UP can resolve a
+        // different direction without an intervening draw, so also match the committed text.
+        val direction = highlightedDirection.takeIf { inputTextTransform(characters[it].orEmpty()) == selectedText }
+            ?: characters.entries.firstOrNull { inputTextTransform(it.value) == selectedText }?.key
+            ?: return null
+        val rect = rects[direction] ?: return null
+        val copy = Paint(textPaint)
+        KeyboardSkinRegistry.find(skinId)?.let { skin ->
+            copy.color = if (direction == highlightedDirection) skin.palette.selectionText else skin.palette.text
+        }
+        return InputCharacterPopGlyph.capture(
+            this, host, selectedText, copy, rect.centerX(),
+            rect.centerY() - (copy.ascent() + copy.descent()) / 2f)
     }
 
     // ===== 内部ヘルパーメソッド =====

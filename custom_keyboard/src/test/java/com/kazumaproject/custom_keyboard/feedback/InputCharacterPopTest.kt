@@ -101,16 +101,35 @@ class InputCharacterPopTest {
         assertEquals(0, effect.activeCount)
     }
 
-    @Test fun hostResizeAndOwnerHideClearAnimations() = harness { owner, effect ->
+    @Test fun hostResizePreservesGlyphButOwnerResizeAndHideClearAnimations() = harness { owner, effect ->
         effect.enabled = true
         effect.prepare { glyph(owner, it) }!!.invoke()
         val root = owner.rootView
         root.layout(0, 0, 900, 700)
+        root.viewTreeObserver.dispatchOnPreDraw()
+        assertEquals(1, effect.activeCount)
+        owner.layout(owner.left, owner.top, owner.right + 20, owner.bottom)
+        root.viewTreeObserver.dispatchOnPreDraw()
         assertEquals(0, effect.activeCount)
         effect.prepare { glyph(owner, it) }!!.invoke()
         owner.visibility = View.GONE
         drawNextFrame()
         assertEquals(0, effect.activeCount)
+    }
+
+    @Test fun movedImeRootRebasesGlyphWithoutMovingItOnScreen() = harness { owner, effect ->
+        effect.enabled = true
+        effect.prepare { glyph(owner, it) }!!.invoke()
+        val root = owner.rootView
+        val before = effect.activeGlyphs.single()
+        val oldLocation = IntArray(2).also(root::getLocationOnScreen)
+        root.offsetTopAndBottom(-40)
+        owner.offsetTopAndBottom(40)
+        root.viewTreeObserver.dispatchOnPreDraw()
+        val after = effect.activeGlyphs.single()
+        val newLocation = IntArray(2).also(root::getLocationOnScreen)
+        assertEquals(before.centerY + oldLocation[1], after.centerY + newLocation[1], .01f)
+        assertEquals(before.centerX, after.centerX, 0f)
     }
 
     @Test fun captureCopiesPaintAndRespectsScaledSource() = harness { owner, _ ->
