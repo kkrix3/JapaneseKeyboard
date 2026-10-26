@@ -19,6 +19,10 @@ keyboards rendered by `FlickKeyboardView`.
 - OFF bypasses snapshot preparation and allocates no renderer on a new keyboard.
   Callbacks and copied Paints are released at completion; hide, detach, layout,
   configuration, font, theme, disable and keyboard replacement clear the layer.
+  Unchanged setting/layout reapplication does not cancel pending or active copies.
+  Candidate-row changes that resize/move only the IME root rebase overlay coordinates
+  before drawing, preserving the glyph's screen XY; actual keyboard movement/resize
+  still clears the layer. No candidate update creates an animation.
 - Tuning constants/curves: `custom_keyboard/.../feedback/InputCharacterPop.kt`.
 
 ## Input boundary
@@ -48,9 +52,11 @@ The common commit path covers normal text taps, standard/cross/petal/center-guid
 flicks, two-step, sticky two-step, hierarchical/three-step and circular (donut) input.
 Character commits after a flick guide's long press also use this path.
 
-Cross/petal directional popups and their long-press grid expose the selected text
-position and font before dismissal. Other popup implementations deliberately use a
-shared key-label/center fallback. This avoids adding separate animation lifecycles
+Cross/petal directional popups and their long-press grid, plus two-step/sticky
+and hierarchical controllers' legacy 3x3 and compact above-key guides, expose the
+selected text position and font before dismissal. Capture does not require another
+draw after the final selection. Other popup implementations use a shared
+key-label/center fallback. This avoids adding separate animation lifecycles
 to all popup controllers. The key center also applies when a popup has a custom icon
 or label that does not match the selected text. Clipping is at the window edge, not
 at individual key bounds. PopupWindows for other simultaneous gestures remain above
@@ -66,7 +72,10 @@ alone. Animation ON/OFF does not disable other touch effects or haptics.
 
 Compare OFF/ON using the same layout, theme and input destination:
 
-1. Tap, all directions, 2nd/3rd stage and donut; verify exact input and selected glyph.
+1. Start with empty composing text: the first glyph must remain visible when candidates
+   appear. Repeat after committing/deleting the composition. Then tap, all directions,
+   2nd/3rd stage and donut; verify exact input and selected glyph. Check both legacy
+   grid and above-key guide origins for two-step/sticky/hierarchical keys.
 2. Release after long-press guide display, then cancel a gesture. Only accepted
    character input should pop. Inspect both directional and grid popup origins.
 3. Type rapidly while previous glyphs remain visible, including two fingers, with

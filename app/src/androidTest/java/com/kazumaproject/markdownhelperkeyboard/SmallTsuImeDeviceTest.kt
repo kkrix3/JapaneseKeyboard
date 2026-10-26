@@ -273,6 +273,9 @@ class SmallTsuImeDeviceTest {
             launchEditor().use { editor ->
                 awaitStableKeyboard()
                 val rect = key("あ")
+                val firstDraw = java.util.concurrent.CountDownLatch(1)
+                val firstGlyphDrawn = java.util.concurrent.atomic.AtomicBoolean(false)
+                var finishInputs: (() -> Unit)? = null
                 ins.runOnMainSync {
                     val root = keyboardRootAt(rect)
                     val keyboard = checkNotNull(flickView(root))
@@ -294,15 +297,28 @@ class SmallTsuImeDeviceTest {
                     assertTrue(glyphTexts(keyboard).isEmpty())
                     send(MotionEvent.ACTION_CANCEL)
                     assertTrue(glyphTexts(keyboard).isEmpty())
-                    repeat(2) {
-                        send(MotionEvent.ACTION_DOWN); send(MotionEvent.ACTION_UP)
+                    val drawListener = object : android.view.ViewTreeObserver.OnDrawListener {
+                        override fun onDraw() {
+                            firstGlyphDrawn.set(glyphTexts(keyboard) == listOf("あ"))
+                            firstDraw.countDown()
+                            root.post { root.viewTreeObserver.removeOnDrawListener(this) }
+                        }
                     }
-                    assertEquals(listOf("あ", "あ"), glyphTexts(keyboard))
-                    check(prefs.edit().putBoolean("input_character_pop_animation_preference", false).commit())
-                    assertTrue(glyphTexts(keyboard).isEmpty())
+                    root.viewTreeObserver.addOnDrawListener(drawListener)
                     send(MotionEvent.ACTION_DOWN); send(MotionEvent.ACTION_UP)
-                    assertTrue(glyphTexts(keyboard).isEmpty())
+                    assertEquals(listOf("あ"), glyphTexts(keyboard))
+                    finishInputs = {
+                        send(MotionEvent.ACTION_DOWN); send(MotionEvent.ACTION_UP)
+                        assertTrue(glyphTexts(keyboard).contains("あ"))
+                        check(prefs.edit().putBoolean("input_character_pop_animation_preference", false).commit())
+                        assertTrue(glyphTexts(keyboard).isEmpty())
+                        send(MotionEvent.ACTION_DOWN); send(MotionEvent.ACTION_UP)
+                        assertTrue(glyphTexts(keyboard).isEmpty())
+                    }
                 }
+                assertTrue("first composing input must reach a draw", firstDraw.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                assertTrue("first glyph must survive candidate/layout updates until drawing", firstGlyphDrawn.get())
+                ins.runOnMainSync { finishInputs!!() }
                 awaitLiveText(editor, "あああ", "pop ON/OFF and cancel preserve exact input")
             }
         } finally {

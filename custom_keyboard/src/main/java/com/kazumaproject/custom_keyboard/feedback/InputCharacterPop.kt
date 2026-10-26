@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable
 import android.os.SystemClock
 import android.view.Choreographer
 import android.view.View
+import android.view.ViewTreeObserver
 import android.widget.TextView
 
 /** All tuning lives here. Neither curve changes the glyph's XY position. */
@@ -115,8 +116,40 @@ internal class InputCharacterPop(
     private var host: View? = null
     private var generation = 0L
     private var framePending = false
-    private val hostLayoutListener = View.OnLayoutChangeListener { _, l, t, r, b, ol, ot, or, ob ->
-        if (l != ol || t != ot || r != or || b != ob) clear()
+    private val ownerLocation = IntArray(2)
+    private val hostLocation = IntArray(2)
+    private val locationScratch = IntArray(2)
+    private var ownerWidth = 0
+    private var ownerHeight = 0
+    private var hostScaleX = 1f
+    private var hostScaleY = 1f
+    // Candidate rows can resize/move the IME root on the first composing character
+    // without changing the keyboard on screen. Keep that glyph at the same screen XY.
+    private val preDrawListener = ViewTreeObserver.OnPreDrawListener {
+        syncGeometry()
+        true
+    }
+
+    private fun syncGeometry() {
+        val target = host ?: return
+        owner.getLocationOnScreen(locationScratch)
+        if (target.scaleX != hostScaleX || target.scaleY != hostScaleY || !owner.isShown || owner.width != ownerWidth || owner.height != ownerHeight ||
+            !locationScratch.contentEquals(ownerLocation)) {
+            clear()
+            return
+        }
+        target.getLocationOnScreen(locationScratch)
+        val dx = hostLocation[0] - locationScratch[0]
+        val dy = hostLocation[1] - locationScratch[1]
+        if (dx != 0 || dy != 0) {
+            for (i in entries.indices) {
+                val entry = entries[i]
+                entries[i] = entry.copy(glyph = entry.glyph.copy(
+                    centerX = entry.glyph.centerX + dx / hostScaleX, centerY = entry.glyph.centerY + dy / hostScaleY))
+            }
+        }
+        locationScratch.copyInto(hostLocation)
+        drawable.setBounds(0, 0, target.width, target.height)
     }
     var enabled: Boolean = false
         set(value) {
@@ -168,6 +201,12 @@ internal class InputCharacterPop(
         if (!enabled || !owner.isAttachedToWindow || !owner.isShown) return null
         val target = owner.rootView
         val glyph = capture(target) ?: return null
+        val capturedHostLocation = IntArray(2).also(target::getLocationOnScreen)
+        val capturedOwnerLocation = IntArray(2).also(owner::getLocationOnScreen)
+        val capturedScaleX = target.scaleX
+        val capturedScaleY = target.scaleY
+        val capturedWidth = owner.width
+        val capturedHeight = owner.height
         val capturedGeneration = generation
         var consumed = false
         return accepted@{
@@ -175,14 +214,29 @@ internal class InputCharacterPop(
             consumed = true
             if (!enabled || generation != capturedGeneration || !owner.isAttachedToWindow ||
                 !owner.isShown || owner.rootView !== target) return@accepted
+            owner.getLocationOnScreen(locationScratch)
+            if (target.scaleX != capturedScaleX || target.scaleY != capturedScaleY || owner.width != capturedWidth || owner.height != capturedHeight ||
+                !locationScratch.contentEquals(capturedOwnerLocation)) return@accepted
+            syncGeometry()
+            if (generation != capturedGeneration) return@accepted
             if (host == null) {
                 host = target
                 drawable.setBounds(0, 0, target.width, target.height)
                 target.overlay.add(drawable)
-                target.addOnLayoutChangeListener(hostLayoutListener)
+                owner.getLocationOnScreen(ownerLocation)
+                hostScaleX = target.scaleX
+                hostScaleY = target.scaleY
+                ownerWidth = owner.width
+                ownerHeight = owner.height
+                target.getLocationOnScreen(hostLocation)
+                target.viewTreeObserver.addOnPreDrawListener(preDrawListener)
             }
             if (entries.size == InputCharacterPopSpec.MAX_ACTIVE) entries.removeAt(0)
-            entries.add(Entry(glyph, clockMillis()))
+            target.getLocationOnScreen(locationScratch)
+            val positionedGlyph = glyph.copy(
+                centerX = glyph.centerX + (capturedHostLocation[0] - locationScratch[0]) / hostScaleX,
+                centerY = glyph.centerY + (capturedHostLocation[1] - locationScratch[1]) / hostScaleY)
+            entries.add(Entry(positionedGlyph, clockMillis()))
             drawable.invalidateSelf()
             scheduleFrame()
         }
@@ -197,7 +251,7 @@ internal class InputCharacterPop(
         entries.clear()
         host?.let {
             it.overlay.remove(drawable)
-            it.removeOnLayoutChangeListener(hostLayoutListener)
+            if (it.viewTreeObserver.isAlive) it.viewTreeObserver.removeOnPreDrawListener(preDrawListener)
         }
         host = null
     }
