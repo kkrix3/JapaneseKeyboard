@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopPlacement
+
 import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import android.annotation.SuppressLint
 import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
@@ -106,6 +108,8 @@ class CrossFlickInputController(
 
     var listener: CrossFlickListener? = null
     var stageHaptics: FlickStageHapticFeedback? = null
+
+    internal fun inputCharacterPopPlacement() = InputCharacterPopPlacement.legacy(currentDirection)
 
     private var popupOverlayHostProvider: (() -> View?)? = null
 

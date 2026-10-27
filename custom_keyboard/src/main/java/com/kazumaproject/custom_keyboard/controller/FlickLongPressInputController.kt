@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopPlacement
+
 import android.annotation.SuppressLint
 import android.content.Context
 import android.view.Gravity
@@ -51,6 +53,8 @@ class FlickLongPressInputController(
     }
 
     var listener: Listener? = null
+
+    internal fun inputCharacterPopPlacement() = InputCharacterPopPlacement.slot(currentDirection ?: TfbiFlickDirection.TAP)
 
     private var attachedView: View? = null
     private var normalMap: Map<TfbiFlickDirection, String> = emptyMap()

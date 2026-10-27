@@ -12,23 +12,14 @@ import android.view.View
 import android.view.ViewTreeObserver
 import android.widget.TextView
 
-/** All tuning lives here. Neither curve changes the glyph's XY position. */
+/** Shared rendering limits. Neither curve changes the glyph's XY position. */
 internal object InputCharacterPopSpec {
     const val DURATION_MS = 280L
-    const val END_SCALE = 1.8f
-    const val FADE_START = 0.15f
     const val MAX_ACTIVE = 12
     const val MAX_CODE_POINTS = 32
 
-    fun scale(progress: Float): Float {
-        val t = progress.coerceIn(0f, 1f)
-        return 1f + (END_SCALE - 1f) * (1f - (1f - t) * (1f - t))
-    }
-
-    fun alpha(progress: Float): Float {
-        val t = ((progress - FADE_START) / (1f - FADE_START)).coerceIn(0f, 1f)
-        return 1f - t * t * (3f - 2f * t)
-    }
+    fun scale(progress: Float): Float = InputCharacterPopSettings().scale(progress)
+    fun alpha(progress: Float): Float = InputCharacterPopSettings().alpha(progress)
 
     fun canDisplay(text: String): Boolean = text.isNotBlank() &&
         !text.any { it.isISOControl() } && text.codePointCount(0, text.length) <= MAX_CODE_POINTS
@@ -45,6 +36,19 @@ internal data class InputCharacterPopGlyph(
     val scaleX: Float,
     val scaleY: Float,
 ) {
+    /** Key geometry sets the origin; popup font size/position never affect this coordinate. */
+    fun atKey(key: View, host: View, placement: InputCharacterPopPlacement, distanceDp: Int): InputCharacterPopGlyph {
+        val keyLocation = IntArray(2).also(key::getLocationOnScreen)
+        val hostLocation = IntArray(2).also(host::getLocationOnScreen)
+        val keyScale = accumulatedScale(key)
+        val hostScale = accumulatedScale(host)
+        val (dx, dy) = placement.offset(distanceDp * key.resources.displayMetrics.density)
+        return copy(
+            centerX = (keyLocation[0] - hostLocation[0] + key.width / 2f * keyScale.first + dx) / hostScale.first,
+            centerY = (keyLocation[1] - hostLocation[1] + key.height / 2f * keyScale.second + dy) / hostScale.second,
+        )
+    }
+
     companion object {
         fun capture(source: View, host: View, text: String, paint: Paint, x: Float, baseline: Float): InputCharacterPopGlyph? {
             if (!InputCharacterPopSpec.canDisplay(text) || !source.isAttachedToWindow ||
@@ -111,7 +115,8 @@ internal class InputCharacterPop(
     private val requestFrame: (Choreographer.FrameCallback) -> Unit = { Choreographer.getInstance().postFrameCallback(it) },
     private val cancelFrame: (Choreographer.FrameCallback) -> Unit = { Choreographer.getInstance().removeFrameCallback(it) },
 ) {
-    private data class Entry(val glyph: InputCharacterPopGlyph, val startedAt: Long)
+    private data class Entry(val glyph: InputCharacterPopGlyph, val startedAt: Long, val settings: InputCharacterPopSettings)
+    var settings = InputCharacterPopSettings()
     private val entries = ArrayList<Entry>(InputCharacterPopSpec.MAX_ACTIVE)
     private var host: View? = null
     private var generation = 0L
@@ -164,13 +169,13 @@ internal class InputCharacterPop(
         override fun draw(canvas: Canvas) {
             val now = clockMillis()
             for (entry in entries) {
-                val t = (now - entry.startedAt).toFloat() / InputCharacterPopSpec.DURATION_MS
+                val t = (now - entry.startedAt).toFloat() / entry.settings.durationMs
                 val glyph = entry.glyph
                 val savedAlpha = glyph.paint.alpha
-                glyph.paint.alpha = (savedAlpha * InputCharacterPopSpec.alpha(t)).toInt()
+                glyph.paint.alpha = (savedAlpha * entry.settings.alpha(t)).toInt()
                 val count = canvas.save()
                 canvas.translate(glyph.centerX, glyph.centerY)
-                val scale = InputCharacterPopSpec.scale(t)
+                val scale = entry.settings.scale(t)
                 canvas.scale(glyph.scaleX * scale, glyph.scaleY * scale)
                 canvas.drawText(glyph.text, glyph.drawX, glyph.baseline, glyph.paint)
                 canvas.restoreToCount(count)
@@ -188,7 +193,7 @@ internal class InputCharacterPop(
             clear()
         } else {
             val now = clockMillis()
-            entries.removeAll { now - it.startedAt >= InputCharacterPopSpec.DURATION_MS }
+            entries.removeAll { now - it.startedAt >= it.settings.durationMs }
             if (entries.isEmpty()) releaseLayer(invalidatePending = false) else {
                 drawable.invalidateSelf()
                 scheduleFrame()
@@ -200,6 +205,7 @@ internal class InputCharacterPop(
     fun prepare(capture: (View) -> InputCharacterPopGlyph?): (() -> Unit)? {
         if (!enabled || !owner.isAttachedToWindow || !owner.isShown) return null
         val target = owner.rootView
+        val snapshot = settings.normalized()
         val glyph = capture(target) ?: return null
         val capturedHostLocation = IntArray(2).also(target::getLocationOnScreen)
         val capturedOwnerLocation = IntArray(2).also(owner::getLocationOnScreen)
@@ -236,7 +242,7 @@ internal class InputCharacterPop(
             val positionedGlyph = glyph.copy(
                 centerX = glyph.centerX + (capturedHostLocation[0] - locationScratch[0]) / hostScaleX,
                 centerY = glyph.centerY + (capturedHostLocation[1] - locationScratch[1]) / hostScaleY)
-            entries.add(Entry(positionedGlyph, clockMillis()))
+            entries.add(Entry(positionedGlyph, clockMillis(), snapshot))
             drawable.invalidateSelf()
             scheduleFrame()
         }

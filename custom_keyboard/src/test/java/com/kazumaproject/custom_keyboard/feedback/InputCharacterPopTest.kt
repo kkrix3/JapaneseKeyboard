@@ -80,6 +80,24 @@ class InputCharacterPopTest {
         assertEquals(0, effect.activeCount)
     }
 
+    @Test fun eachInputKeepsItsOwnDurationAndCoordinatesAfterSettingsChange() = harness { owner, effect ->
+        effect.enabled = true
+        effect.settings = InputCharacterPopSettings(durationMs = 1500, startScalePercent = 400,
+            endScalePercent = 10, fadeStartPercent = 100)
+        effect.prepare { glyph(owner, it) }!!.invoke()
+        val center = effect.activeGlyphs.single().let { it.centerX to it.centerY }
+        effect.settings = InputCharacterPopSettings(durationMs = 50, distanceDp = 0)
+        effect.prepare { glyph(owner, it) }!!.invoke()
+        testTime = 51L; drawNextFrame()
+        assertEquals(1, effect.activeCount)
+        assertEquals(center, effect.activeGlyphs.single().let { it.centerX to it.centerY })
+        testTime = 1499L; drawNextFrame()
+        assertEquals(1, effect.activeCount)
+        assertEquals(center, effect.activeGlyphs.single().let { it.centerX to it.centerY })
+        testTime = 1500L; drawNextFrame()
+        assertEquals(0, effect.activeCount)
+    }
+
     @Test fun olderAnimationExpiryDoesNotInvalidateLaterDeferredInput() = harness { owner, effect ->
         effect.enabled = true
         effect.prepare { glyph(owner, it) }!!.invoke()

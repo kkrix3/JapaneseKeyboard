@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopPlacement
+
 import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import android.annotation.SuppressLint
 import android.content.Context
@@ -73,6 +75,15 @@ class CustomAngleFlickController(
     ).apply {
         isOutsideTouchable = false
         isTouchable = false
+    }
+
+    internal fun inputCharacterPopPlacement(direction: CircularFlickDirection): InputCharacterPopPlacement {
+        if (direction == CircularFlickDirection.TAP) return InputCharacterPopPlacement.CENTER
+        val map = keyMaps.getOrNull(currentMapIndex).orEmpty()
+        val range = buildEffectiveCircularFlickRanges(configuredDirectionCount, map, configuredRanges)[direction]
+            ?: return InputCharacterPopPlacement.CENTER
+        val radians = Math.toRadians((range.first + range.second / 2f).toDouble())
+        return InputCharacterPopPlacement(kotlin.math.cos(radians).toFloat(), kotlin.math.sin(radians).toFloat())
     }
 
     private var anchorView: View? = null

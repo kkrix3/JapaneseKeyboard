@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopPlacement
+
 import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import android.annotation.SuppressLint
 import android.content.Context
@@ -55,6 +57,8 @@ class CenterGuideFlickInputController(
 
     var listener: Listener? = null
     var stageHaptics: FlickStageHapticFeedback? = null
+
+    internal fun inputCharacterPopPlacement() = InputCharacterPopPlacement.slot(currentDirection)
 
     private var attachedView: View? = null
     private var popupWindowAnchorProvider: (() -> View?)? = null

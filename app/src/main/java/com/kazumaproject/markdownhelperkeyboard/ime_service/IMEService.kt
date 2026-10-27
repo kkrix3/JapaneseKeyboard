@@ -1034,12 +1034,13 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private val runtimeInputPreferenceListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             runOnMainThread { invalidateSmallTsu() }
-            if (key == null || key == "input_character_pop_animation_preference") {
+            if (key == null || key.startsWith("input_character_pop_")) {
                 runOnMainThread {
                     val enabled = appPreference.input_character_pop_animation_preference
                     (listOfNotNull(mainLayoutBinding?.customLayoutDefault,
                         floatingKeyboardBinding?.customLayoutFloating) +
                         splitInputs.values.map { it.binding.customLayoutFloating }).distinct().forEach {
+                        it.setInputCharacterPopSettings(appPreference.inputCharacterPopSettings)
                         it.setInputCharacterPopEnabled(enabled)
                     }
                 }
@@ -15169,6 +15170,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     ) {
         flickView.kanaGestureObserver = kanaGestureObserver
         flickView.setOnFlickTextPreviewListener(sumireFlickTextPreviewListener)
+        flickView.setInputCharacterPopSettings(appPreference.inputCharacterPopSettings)
         flickView.setInputCharacterPopEnabled(appPreference.input_character_pop_animation_preference)
         flickView.bindRuntimeGestureSettings(runtimeGestureSettingsSource)
         val tfbiPopupPresentationMode = appPreference.flick_tfbi_popup_presentation
