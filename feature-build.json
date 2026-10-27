@@ -1,7 +1,7 @@
 {
   "baseSha": "a83b20478880662cb52e2ba0fa48910a9eeca012",
   "featureRef": "feature/input-character-pop-animation",
-  "featureSha": "466da93258cc8b32d34fbac1b37f76b0af492f20",
+  "featureSha": "6bf4874f773eae53c5a26d03b7519537d2287bdd",
   "infrastructureRef": "build/feature-apk-v1.7.133",
   "infrastructureSha": "7534cd734cdb5af42be53c5ddde1b85fb787e109",
   "appTestFilters": [

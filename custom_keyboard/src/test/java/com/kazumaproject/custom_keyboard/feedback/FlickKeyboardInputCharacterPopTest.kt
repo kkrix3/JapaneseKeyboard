@@ -167,7 +167,7 @@ class FlickKeyboardInputCharacterPopTest {
             val base = layout(type)
             val configured = base.copy(twoStepFlickKeyMaps = mapOf("あ" to mapOf(
                 TfbiFlickDirection.TAP to mapOf(TfbiFlickDirection.TAP to "あ"),
-                first to mapOf(first to "う", second to "え"))))
+                first to mapOf(TfbiFlickDirection.TAP to "う", first to "う", second to "え"))))
             Harness(type, customLayout = configured).use { h ->
                 fun delta(direction: TfbiFlickDirection): Pair<Float, Float> {
                     val (col, row) = TfbiGuideGrid.cellOf(direction)

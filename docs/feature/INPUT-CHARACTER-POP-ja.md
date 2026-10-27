@@ -9,7 +9,7 @@
 | 役割 | ref | SHA |
 | --- | --- | --- |
 | 基点 | preview | a83b20478880662cb52e2ba0fa48910a9eeca012 |
-| 機能 | feature/input-character-pop-animation | 466da93258cc8b32d34fbac1b37f76b0af492f20 |
+| 機能 | feature/input-character-pop-animation | 6bf4874f773eae53c5a26d03b7519537d2287bdd |
 | 配布基盤 | build/feature-apk-v1.7.133 | 7534cd734cdb5af42be53c5ddde1b85fb787e109 |
 
 機能と配布基盤を通常mergeした検証専用ブランチで、previewへのマージではない。
