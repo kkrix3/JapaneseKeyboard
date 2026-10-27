@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopPlacement
+
 import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
 
 import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
@@ -91,6 +93,8 @@ class TfbiHierarchicalFlickController(
 
     var listener: TfbiListener? = null
     var stageHaptics: FlickStageHapticFeedback? = null
+    internal fun inputCharacterPopPlacement() = InputCharacterPopPlacement.slot(currentHighlight, gridPlacement = committedFlickDepth() >= 2)
+
     private var attachedView: View? = null
 
     private var currentMode = KeyMode.NORMAL

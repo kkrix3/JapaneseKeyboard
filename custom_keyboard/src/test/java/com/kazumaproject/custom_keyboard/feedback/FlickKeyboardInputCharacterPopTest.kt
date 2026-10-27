@@ -30,7 +30,7 @@ import java.time.Duration
 @LooperMode(LooperMode.Mode.PAUSED)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class FlickKeyboardInputCharacterPopTest {
-    private class Harness(type: KeyType = KeyType.PETAL_FLICK, enabled: Boolean = true) : AutoCloseable {
+    private class Harness(type: KeyType = KeyType.PETAL_FLICK, enabled: Boolean = true, customLayout: KeyboardLayout? = null) : AutoCloseable {
         val activity = Robolectric.buildActivity(Activity::class.java).setup()
         val context = ContextThemeWrapper(activity.get(), com.google.android.material.R.style.Theme_Material3_DayNight_NoActionBar)
         val view = FlickKeyboardView(context)
@@ -62,7 +62,7 @@ class FlickKeyboardInputCharacterPopTest {
                 override fun onFlickActionLongPress(action: KeyAction) = Unit
                 override fun onFlickActionUpAfterLongPress(action: KeyAction, isFlick: Boolean) = Unit
             })
-            view.setKeyboard(layout(type))
+            view.setKeyboard(customLayout ?: layout(type))
             activity.get().setContentView(view)
             view.measure(View.MeasureSpec.makeMeasureSpec(600, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(300, View.MeasureSpec.EXACTLY))
@@ -131,7 +131,7 @@ class FlickKeyboardInputCharacterPopTest {
         assertEquals(1, h.count)
     }
 
-    @Test fun twoStepPopUsesTheVisibleGridOrGuideInsteadOfTheKeyCenter() {
+    @Test fun twoStepPopUsesTheSameKeyRelativePositionForGridAndGuide() {
         for (mode in com.kazumaproject.core.data.popup.TfbiPopupPresentationMode.entries)
         for (type in listOf(KeyType.TWO_STEP_FLICK, KeyType.STICKY_TWO_STEP_FLICK)) Harness(type).use { h ->
             h.view.setTfbiPopupPresentationMode(mode)
@@ -142,9 +142,52 @@ class FlickKeyboardInputCharacterPopTest {
             h.send(MotionEvent.ACTION_UP, dy = -110f)
             assertEquals("type=$type", listOf(KeyAction.Text("う")), h.actions)
             val glyph = h.effect!!.activeGlyphs.single()
-            val fallback = (h.view.getChildAt(0) as com.kazumaproject.custom_keyboard.view.AutoSizeButton)
-                .captureInputCharacterPop(h.view.rootView, "う")!!
-            assertTrue("type=$type mode=$mode must use the popup's selected text, not key center", kotlin.math.abs(glyph.centerY - fallback.centerY) > 20f)
+            val key = h.view.getChildAt(0)
+            val keyLocation = IntArray(2).also(key::getLocationOnScreen)
+            val rootLocation = IntArray(2).also(h.view.rootView::getLocationOnScreen)
+            assertEquals(keyLocation[0] - rootLocation[0] + key.width / 2f, glyph.centerX, .01f)
+            assertEquals(keyLocation[1] - rootLocation[1] + key.height / 2f -
+                20f * h.view.resources.displayMetrics.density, glyph.centerY, .01f)
+        }
+    }
+
+    @Test fun allTwoAxisTurnsUseGridCellsOnRealCommitIncludingSticky() {
+        val turns = listOf(
+            TfbiFlickDirection.UP to TfbiFlickDirection.UP_LEFT,
+            TfbiFlickDirection.UP to TfbiFlickDirection.UP_RIGHT,
+            TfbiFlickDirection.RIGHT to TfbiFlickDirection.UP_RIGHT,
+            TfbiFlickDirection.RIGHT to TfbiFlickDirection.DOWN_RIGHT,
+            TfbiFlickDirection.DOWN to TfbiFlickDirection.DOWN_RIGHT,
+            TfbiFlickDirection.DOWN to TfbiFlickDirection.DOWN_LEFT,
+            TfbiFlickDirection.LEFT to TfbiFlickDirection.DOWN_LEFT,
+            TfbiFlickDirection.LEFT to TfbiFlickDirection.UP_LEFT,
+            TfbiFlickDirection.UP to TfbiFlickDirection.RIGHT)
+        for (type in listOf(KeyType.TWO_STEP_FLICK, KeyType.STICKY_TWO_STEP_FLICK))
+        for ((first, second) in turns) {
+            val base = layout(type)
+            val configured = base.copy(twoStepFlickKeyMaps = mapOf("あ" to mapOf(
+                TfbiFlickDirection.TAP to mapOf(TfbiFlickDirection.TAP to "あ"),
+                first to mapOf(first to "う", second to "え"))))
+            Harness(type, customLayout = configured).use { h ->
+                fun delta(direction: TfbiFlickDirection): Pair<Float, Float> {
+                    val (col, row) = TfbiGuideGrid.cellOf(direction)
+                    return (col - 1) * 110f to (row - 1) * 110f
+                }
+                val (x1, y1) = delta(first); val (x2, y2) = delta(second)
+                h.send(MotionEvent.ACTION_DOWN)
+                h.send(MotionEvent.ACTION_MOVE, x1, y1)
+                h.send(MotionEvent.ACTION_MOVE, x1 + x2, y1 + y2)
+                h.send(MotionEvent.ACTION_UP, x1 + x2, y1 + y2)
+                assertEquals("$type $first -> $second", listOf(KeyAction.Text("え")), h.actions)
+                val key = h.view.getChildAt(0)
+                val loc = IntArray(2).also(key::getLocationOnScreen)
+                val root = IntArray(2).also(h.view.rootView::getLocationOnScreen)
+                val glyph = h.effect!!.activeGlyphs.single()
+                val (dx, dy) = InputCharacterPopPlacement.twoStep(first, second)
+                    .offset(20f * h.view.resources.displayMetrics.density)
+                assertEquals(loc[0] - root[0] + key.width / 2f + dx, glyph.centerX, .01f)
+                assertEquals(loc[1] - root[1] + key.height / 2f + dy, glyph.centerY, .01f)
+            }
         }
     }
 
@@ -164,6 +207,22 @@ class FlickKeyboardInputCharacterPopTest {
         val glyph = h.effect!!.activeGlyphs.single()
         assertEquals(background.inputCharacterPopPaint().color, glyph.paint.color)
         assertEquals(background.inputCharacterPopPaint().textSize, glyph.paint.textSize, 0f)
+    }
+
+    @Test fun zeroDistanceUsesGeometricKeyCenterAtDifferentTextSizes() {
+        for (size in listOf(14f, 36f)) Harness().use { h ->
+            h.view.setInputCharacterPopSettings(InputCharacterPopSettings(distanceDp = 0))
+            val key = h.view.getChildAt(0) as com.kazumaproject.custom_keyboard.view.AutoSizeButton
+            key.textSize = size
+            h.send(MotionEvent.ACTION_DOWN)
+            h.send(MotionEvent.ACTION_MOVE, dy = -110f)
+            h.send(MotionEvent.ACTION_UP, dy = -110f)
+            val glyph = h.effect!!.activeGlyphs.single()
+            val loc = IntArray(2).also(key::getLocationOnScreen)
+            val root = IntArray(2).also(h.view.rootView::getLocationOnScreen)
+            assertEquals(loc[0] - root[0] + key.width / 2f, glyph.centerX, .01f)
+            assertEquals(loc[1] - root[1] + key.height / 2f, glyph.centerY, .01f)
+        }
     }
 
     @Test fun fastNextKeyInputsAreNotBlockedAndOlderPopsOverlap() = Harness().use { h ->

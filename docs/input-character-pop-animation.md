@@ -1,103 +1,67 @@
-# Input character pop animation (prototype)
+# 入力文字の浮き上がりアニメーション
 
-Enable **Keyboard display → Touch effects → Input character pop animation**
-(日本語: キーボード表示 → タッチエフェクト → 入力文字の浮き上がりアニメーション).
-The switch defaults to OFF, is independent of the selected touch effect and vibration,
-and participates in the existing preferences backup. It affects Sumire and custom
-keyboards rendered by `FlickKeyboardView`.
+`preview` 向け実験機能。初期OFF。入力を受理した後に文字のコピーだけを中心固定で拡大・透明化する。入力処理、カーソル、変換、触覚を変更しない。XY移動アニメーションは実装しない。
 
-## Motion and rendering
+## 調整
 
-- Duration: 280 ms. Scale: 1.0 → 1.8, ease-out quadratic `1 - (1 - t)^2`.
-- Alpha: 1.0 for the first 15% (42 ms), then fades with smoothstep
-  `1 - u²(3 - 2u)`, where `u = (t - .15) / .85`, clamped to 0…1.
-- The center of the glyph's ink bounds remains fixed in both X and Y.
-- A single non-interactive window-overlay Drawable per keyboard renders independent
-  glyph copies. It does not replace keys, alter popup lifecycle, or consume touches.
-- At most 12 active copies; the oldest is removed only when this limit is reached.
-  Each copy retains its own font/paint and start time. No per-key View/Animator tree.
-- OFF bypasses snapshot preparation and allocates no renderer on a new keyboard.
-  Callbacks and copied Paints are released at completion; hide, detach, layout,
-  configuration, font, theme, disable and keyboard replacement clear the layer.
-  Unchanged setting/layout reapplication does not cancel pending or active copies.
-  Candidate-row changes that resize/move only the IME root rebase overlay coordinates
-  before drawing, preserving the glyph's screen XY; actual keyboard movement/resize
-  still clears the layer. No candidate update creates an animation.
-- Tuning constants/curves: `custom_keyboard/.../feedback/InputCharacterPop.kt`.
+「キーボード表示 → タッチエフェクト → 入力文字の浮き上がりアニメーション」をONにすると、同じ画面の次の設定を操作できる。旧設定画面にも同じ項目を用意する。
 
-## Input boundary
+|設定|初期値|範囲|スライダーの刻み|
+|---|---:|---:|---:|
+|再生時間|280 ms|50–1500 ms|10 ms|
+|開始拡大率|100%|10–400%|5%|
+|終了拡大率|180%|10–400%|5%|
+|開始不透明度|100%|0–100%|1%|
+|終了不透明度|0%|0–100%|1%|
+|フェード開始|20%|0–100%|1%|
+|発生位置の基準距離|20 dp|0–100 dp|1 dp|
+|拡大の補間|Ease-out|Linear / Ease-in / Ease-out / Ease-in-out|選択|
+|フェードの補間|Ease-out|同上|選択|
 
-`FlickTextPreviewEmitter.commit` sends `CommitPending` before dispatch and `Finished`
-from a `finally` block. These events do **not** prove that the IME accepted input.
-Neither is used to start this effect, and neither emitter nor event types changed.
+開始値と終了値は独立。縮小や不透明化も指定可能。補間はそれぞれ t, t², 1−(1−t)², 二次の対称Ease-in-out。フェード開始100%は終了直前まで開始不透明度を保ち、終了時に終了値にする。終了不透明度が0でなくても寿命で除去する。スライダーの刻みは操作単位で、保存済みの範囲内整数を丸め直さない。
 
-The common `dispatchCommittedKeyAction` captures just the selected text appearance
-before input can change labels or dismiss the popup. For eligible text it calls the
-new opt-in listener method `onCommittedTextAction`. IMEService acknowledges only
-after the existing `performCommittedAction` / `CommittedInputHaptics.dispatch`
-path accepts it with an input connection. Deferred cursor operations carry the same
-callback; a generation check prevents stale callbacks after layout/lifecycle changes.
-There is no animation wait, input debounce, composing mutation, extra InputConnection
-call, or change to the recognizers. IME acceptance is not proof that a remote editor
-has rendered the characters; this follows the app's existing acceptance contract.
+設定は既存SharedPreferencesと既存バックアップを使用する。読み書きの両側で範囲内に制限し、型の不一致や未知の補間名は初期値に戻す。再生開始前に設定スナップショットを捕捉し、既存文字の寿命・補間は後続の設定変更の影響を受けない。通常・浮動・分割の各キーボードへ設定変更を反映する。
 
-Candidates and live conversion do not enter this view dispatch path. Small-tsu
-replacement keeps displaying the original selected character. ACTION_CANCEL and
-unassigned directions cannot start an effect. Empty, whitespace-only, control-containing
-or >32-code-point text is skipped to bound work.
+## 発生位置
 
-## Coverage / fallback
+1. キーViewの画面上の矩形から**幾何学的中心**を求める。
+2. 確定した方向・選択スロットから相対配置を取得する。
+3. `InputCharacterPopPlacement.offset(d)` で中心からの差分を求める。
+4. ルートの座標系へ変換し、同じ文字中心で再生する。
 
-The common commit path covers normal text taps, standard/cross/petal/center-guide
-flicks, two-step, sticky two-step, hierarchical/three-step and circular (donut) input.
-Character commits after a flick guide's long press also use this path.
+タップは(0,0)、上下左右は(0,±d)/(±d,0)。通常の1段斜めは(±d/√2,±d/√2)で距離d。多段で別のスロットを選択した場合は、既存の `TfbiGuideGrid.cellOf` が返す3×3の相対セルを使う。斜めセルは(±d,±d)で距離√2d、軸上セルは距離d。
 
-Cross/petal directional popups and their long-press grid, plus two-step/sticky
-and hierarchical controllers' legacy 3x3 and compact above-key guides, expose the
-selected text position and font before dismissal. Capture does not require another
-draw after the final selection. Other popup implementations use a shared
-key-label/center fallback. This avoids adding separate animation lifecycles
-to all popup controllers. The key center also applies when a popup has a custom icon
-or label that does not match the selected text. Clipping is at the window edge, not
-at individual key bounds. PopupWindows for other simultaneous gestures remain above
-the underlying window overlay. Rotated view hierarchies are not supported; existing
-keyboard scale/translation and floating-window origins are accounted for.
+**方向名は表示マッピングを確認して扱う。** 旧 `FlickDirection.UP_LEFT_FAR` は実際には左、`UP_RIGHT_FAR` は右。多段の第2マップの方向は既に絶対的な表示セルであり、第1方向と加算しない。例えば本体の「上から右上文字を選ぶ」経路は `UP → UP_RIGHT` で( d,−d )、第2マップの `RIGHT` に文字がある場合は軸上( d,0 )。`UP → UP` のようなサブメニュー進入方向の反復は1段として扱う。
 
-Not covered: legacy Kana `TenKey` view, QWERTY, special/action keys, toggle cycling,
-explicit special-key double-tap bindings, normal-key long-press action callbacks,
-and candidate/clipboard/voice input. The prototype intentionally leaves these paths
-alone. Animation ON/OFF does not disable other touch effects or haptics.
+|方式|対応|
+|---|---|
+|通常タップ|キー中心|
+|標準・十字・花びら|既存の確定方向を表示軸へ対応付け|
+|中央ガイド|8方向、1段斜めを正規化|
+|ドーナツ|描画・判定と共通の有効な角度範囲の中心角、距離d|
+|2段・固定2段|確定コールバックのfirst/secondと3×3表示セル|
+|階層・3段|保持中の経路で進入方向の反復を除外し、確定した最後の表示セルを使用|
+|フリック長押し文字|選択済み方向、距離d|
 
-## Device review before merging
+3段でも座標を累積しない。任意の階層の字形から配置を推測する処理は追加しない。上部ガイド・グリッド・ポップアップのサイズ/余白/表示終了にかかわらず同じ位置になる。文字のPaintはキーから複製し、ポップアップ設定による文字サイズの不一致も避ける。距離は画面上のdpで、キーボードのサイズを変えても基準距離を維持する。再生中はXY固定。候補欄表示によるルート移動だけは画面上の座標を維持する補正を行い、実際のキーボード移動/サイズ/テーマ/フォント/レイアウト変更では消去する。
 
-Compare OFF/ON using the same layout, theme and input destination:
+## 入力と将来の移動方向
 
-1. Start with empty composing text: the first glyph must remain visible when candidates
-   appear. Repeat after committing/deleting the composition. Then tap, all directions,
-   2nd/3rd stage and donut; verify exact input and selected glyph. Check both legacy
-   grid and above-key guide origins for two-step/sticky/hierarchical keys.
-2. Release after long-press guide display, then cancel a gesture. Only accepted
-   character input should pop. Inspect both directional and grid popup origins.
-3. Type rapidly while previous glyphs remain visible, including two fingers, with
-   existing touch effects and custom/stage haptics enabled. Check recognition and latency.
-4. Switch keyboard, input mode, theme/font, orientation and floating/split layout
-   during an animation; ensure no old glyphs remain or jump to another surface.
-5. Check dark/light/custom skins and edge keys; no key-sized clipping, unwanted XY
-   movement, background scaling or popup flicker. Judge 280 ms / 180% on the device.
-6. With live conversion, predictions and small-tsu enabled, check that only physical
-   key-selected text pops, with no additional effects for conversion/replacement.
+`FlickTextPreviewEvent.Finished` を受理とみなさず、既存IMEの成功コールバックだけで開始する。通常かなTenKey・QWERTY・特殊キー・トグル・特殊ダブルタップ・通常キー長押しアクション・候補選択・音声などは対象外。最大12文字を独立再生し、入力待ち・アニメーション待ちを追加しない。
 
-Robolectric tests exercise curves, bounding, independent expiry, input-before-effect,
-rejection/cancel, real touch routing, lifecycle invalidation and small-tsu/haptics.
-They cannot certify perceived smoothness, OLED contrast, GPU frame time, or latency
-on a physical device. Full Preview CI builds/inspects an unsigned APK for the PR.
-The existing trusted Preview signing job permits only owner-dispatched `preview`;
-this feature does not alter that policy or signing secrets.
+発生位置は `InputCharacterPopPlacement`、再生は `InputCharacterPop` に分離する。2段のfirst/second、階層のhighlightStack/currentHighlight、ドーナツの確定slotは既に取得可能。これらの**選択スロット**と指の最後の物理的な移動方向は常に同じではない（上→右上スロットの操作でも最後の指移動は右など）。将来の移動方向には既存の認識経路や座標情報を別途利用できる。今回そのための状態・設定UI・移動処理は追加していない。
 
-A separate `ci/input-character-pop-apk` verification branch can build the existing
-`-PpreviewDeviceTest=true` Full Standard Debug variant at a pinned feature commit.
-Its `com.kazumaproject.markdownhelperkeyboard.preview.testbench` identity coexists
-with Preview, and it uses the runner's disposable Android debug key. This is an
-ARM64 trial APK, **not** a signed Preview update; settings/learned data are separate.
-Install, select this separate IME, then enable the animation setting. A later runner
-may use a different debug key, requiring removal of the old disposable testbench.
+## 検証と実機確認
+
+自動テストは設定の既定値/保存/再初期化/バックアップ復元/型不一致/範囲外/全補間/フェード0・20・100%、全方向の距離計算（2段の全組合せ）、距離0、各種キーの共通確定、全8通りの二軸配置と2段目軸上配置、Popupモード非依存、連続入力、キャンセル、中心固定、設定変更後の既存再生の独立性を検査する。既存の実IME一文字目・促音・段階振動テストも維持する。
+
+実機では以下を重点確認する。
+
+- 未確定1文字目（候補欄初表示）、確定/全削除後の一文字目。
+- 距離0/20/100、上下左右・1段斜め・2段斜め・2段目軸上、固定2段・階層・3段・回転設定。
+- 上部ガイド/グリッド、ポップアップ表示前・表示後・長押し後のリリースで位置が一致すること。
+- 50/280/1500ms、開始/終了拡大率の逆転、開始/終了不透明度の逆転、フェード開始0/20/100、4補間。
+- テーマ・文字サイズ、通常/浮動/分割、サイズ変更、端のキーの描画クリップ。
+- 高速/連続/複数指、キャンセル、既存の触覚・タッチエフェクトとの併用、体感遅延と自然さ。
+
+視覚品質・GPU負荷・振動の感覚は実機評価が必要。

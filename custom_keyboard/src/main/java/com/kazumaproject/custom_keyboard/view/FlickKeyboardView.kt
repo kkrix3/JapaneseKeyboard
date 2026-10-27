@@ -102,6 +102,8 @@ import com.kazumaproject.core.domain.flick.FlickTextPreviewListener
 import com.kazumaproject.core.domain.flick.FlickTextSelection
 import com.kazumaproject.core.domain.small_tsu.KanaGestureObserver
 import com.kazumaproject.custom_keyboard.feedback.InputCharacterPop
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopSettings
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopPlacement
 import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
 import java.util.IdentityHashMap
 import kotlin.math.abs
@@ -172,27 +174,35 @@ class FlickKeyboardView @JvmOverloads constructor(
     private var listener: OnKeyboardActionListener? = null
     private var inputCharacterPop: InputCharacterPop? = null
 
+    private var inputCharacterPopSettings = InputCharacterPopSettings()
+
+    fun setInputCharacterPopSettings(settings: InputCharacterPopSettings) {
+        inputCharacterPopSettings = settings.normalized()
+        inputCharacterPop?.settings = inputCharacterPopSettings
+    }
+
     fun setInputCharacterPopEnabled(enabled: Boolean) {
-        if (enabled && inputCharacterPop == null) inputCharacterPop = InputCharacterPop(this)
+        if (enabled && inputCharacterPop == null) inputCharacterPop = InputCharacterPop(this).also { it.settings = inputCharacterPopSettings }
         inputCharacterPop?.enabled = enabled
     }
 
-    private fun prepareInputCharacterPop(keyData: KeyData, action: KeyAction): (() -> Unit)? {
+    private fun prepareInputCharacterPop(keyData: KeyData, action: KeyAction, placement: InputCharacterPopPlacement?): (() -> Unit)? {
         val effect = inputCharacterPop?.takeIf { it.enabled } ?: return null
         if (action !is KeyAction.Text || keyData.isSpecialKey ||
             keyData.textInputBehavior == KeyTextInputBehavior.TOGGLE ||
             keyData.effectiveDoubleTapBinding(action) != null) return null
         val info = keyInfos.firstOrNull { it.keyData == keyData } ?: return null
         val text = transformInputTextForDisplay(action.text)
+        val relative = placement ?: when (val controller = info.controller) {
+            is CrossFlickInputController -> controller.inputCharacterPopPlacement()
+            is CenterGuideFlickInputController -> controller.inputCharacterPopPlacement()
+            is FlickLongPressInputController -> controller.inputCharacterPopPlacement()
+            is TfbiHierarchicalFlickController -> controller.inputCharacterPopPlacement()
+            else -> InputCharacterPopPlacement.CENTER
+        }
         return effect.prepare { host ->
-            val popup = when (val controller = info.controller) {
-                is CrossFlickInputController -> controller.captureInputCharacterPop(host, text)
-                is TfbiInputController -> controller.captureInputCharacterPop(host, text)
-                is TfbiStickyFlickController -> controller.captureInputCharacterPop(host, text)
-                is TfbiHierarchicalFlickController -> controller.captureInputCharacterPop(host, text)
-                else -> null
-            }
-            popup ?: (info.view as? AutoSizeButton)?.captureInputCharacterPop(host, text)
+            (info.view as? AutoSizeButton)?.captureInputCharacterPop(host, text)
+                ?.atKey(info.view, host, relative, inputCharacterPopSettings.distanceDp)
         }
     }
 
@@ -1718,7 +1728,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                             dispatchCommittedKeyAction(
                                                 keyData,
                                                 KeyAction.Text(action.char),
-                                                isFlick = direction != CircularFlickDirection.TAP
+                                                isFlick = direction != CircularFlickDirection.TAP,
+                                                popPlacement = inputCharacterPopPlacement(direction)
                                             )
                                         }
                                     }
@@ -1727,7 +1738,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                         dispatchCommittedKeyAction(
                                             keyData,
                                             action.action,
-                                            isFlick = direction != CircularFlickDirection.TAP
+                                            isFlick = direction != CircularFlickDirection.TAP,
+                                            popPlacement = inputCharacterPopPlacement(direction)
                                         )
                                     }
                                 }
@@ -2069,14 +2081,15 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     notifyTextPress(keyData, character)
                                 }
 
-                                override fun onFlick(character: String) = onCommitted(character, true)
+                                override fun onFlick(character: String) = onCommitted(character, true, FlickDirection.TAP)
 
-                                override fun onCommitted(character: String, isFlick: Boolean) {
+                                override fun onCommitted(character: String, isFlick: Boolean, direction: FlickDirection) {
                                     dispatchCommittedKeyAction(
                                         keyData,
                                         KeyAction.Text(character),
                                         isFlick = true,
-                                        kanaTap = !isFlick
+                                        kanaTap = !isFlick,
+                                        popPlacement = InputCharacterPopPlacement.legacy(direction)
                                     )
                                 }
 
@@ -2523,7 +2536,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                         keyData,
                                         KeyAction.Text(character),
                                         isFlick = !(first == TfbiFlickDirection.TAP && second == TfbiFlickDirection.TAP),
-                                        hapticContext = InputHapticContext.fromTwoStepDirections(first, second)
+                                        hapticContext = InputHapticContext.fromTwoStepDirections(first, second),
+                                        popPlacement = InputCharacterPopPlacement.twoStep(first, second)
                                     )
                                 }
                             }
@@ -2541,7 +2555,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                     action = KeyAction.Text(output),
                                     isFlick = !(first == TfbiFlickDirection.TAP &&
                                         second == TfbiFlickDirection.TAP),
-                                    hapticContext = InputHapticContext.fromTwoStepDirections(first, second)
+                                    hapticContext = InputHapticContext.fromTwoStepDirections(first, second),
+                                    popPlacement = InputCharacterPopPlacement.twoStep(first, second)
                                 )
                                 return true
                             }
@@ -2700,7 +2715,8 @@ class FlickKeyboardView @JvmOverloads constructor(
                                         keyData,
                                         KeyAction.Text(character),
                                         isFlick = !(first == TfbiFlickDirection.TAP && second == TfbiFlickDirection.TAP),
-                                        hapticContext = InputHapticContext.fromTwoStepDirections(first, second)
+                                        hapticContext = InputHapticContext.fromTwoStepDirections(first, second),
+                                        popPlacement = InputCharacterPopPlacement.twoStep(first, second)
                                     )
                                 }
                             }
@@ -2874,8 +2890,9 @@ class FlickKeyboardView @JvmOverloads constructor(
         // behavior while observing the actual tap independently for small-tsu.
         kanaTap: Boolean = !isFlick,
         hapticContext: InputHapticContext = InputHapticContext(),
+        popPlacement: InputCharacterPopPlacement? = null,
     ) {
-        val acceptedPop = prepareInputCharacterPop(keyData, action)
+        val acceptedPop = prepareInputCharacterPop(keyData, action, popPlacement)
         val dispatch = dispatch@{
             val toggleValues = if (
                 !isFlick &&

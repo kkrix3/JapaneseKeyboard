@@ -1,5 +1,8 @@
 package com.kazumaproject.markdownhelperkeyboard.setting_activity
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopSettings
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopPreferences
+
 import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.Color
@@ -4673,6 +4676,10 @@ object AppPreference {
         set(value) = preferences.edit {
             it.putBoolean(SUMINAGASHI_INK_EFFECT_ENABLE.first, value)
         }
+
+    var inputCharacterPopSettings: InputCharacterPopSettings
+        get() = InputCharacterPopPreferences.read(preferences)
+        set(value) = InputCharacterPopPreferences.write(preferences, value)
 
     var input_character_pop_animation_preference: Boolean
         get() = preferences.getBoolean("input_character_pop_animation_preference", false)

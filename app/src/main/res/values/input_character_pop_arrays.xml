@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="input_character_pop_easing_entries">
+        <item>Linear</item><item>Ease-in</item><item>Ease-out</item><item>Ease-in-out</item>
+    </string-array>
+    <string-array name="input_character_pop_easing_values" translatable="false">
+        <item>linear</item><item>ease_in</item><item>ease_out</item><item>ease_in_out</item>
+    </string-array>
+</resources>
