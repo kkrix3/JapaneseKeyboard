@@ -128,11 +128,13 @@ CSVは `tools/emoji_search/results/` に保存。開発用24語の結果も別CS
 
 Linux x86_64 / OpenJDK 17 / Kotlin 2.2.10で製品のKotlinを実行。予熱後、76クエリ×20回。保持ヒープはGC後の差分なので、正確なAndroid PSSやアプリ全体の常駐量ではない。測定スクリプト・環境・生データを保存した。
 
-ホストの暫定測定：検索中央値約0.4ms、p95約0.7ms、検索repository生成約24〜33ms、保持ヒープ増分約1.2MB。通常キーボード初期化時にはasset読込を行わず、最初に検索を開いた時だけI/Oワーカーで読み込む。実機の初期化時間・電力・温度は未測定。
+独立した3 JVM起動の中央値：検索p50 **0.393ms**、p95 **0.648ms**、p99 **0.976ms**、検索repository生成 **28.0ms**、保持ヒープ増分 **1,174,768 bytes**、一時割当 **3,159 bytes/query**。通常キーボード初期化時にはasset読込を行わず、最初に検索を開いた時だけI/Oワーカーで読み込む。Android 14エミュレータの検索時間・PSS診断値・APKの比較結果はPR #12の検証記録に記載する。Android実機の初期化時間・電力・温度は未測定。
 
-検索エンジンのホストJUnitは6件成功。実データ再生成はバイト単位で一致。Android 14の追加CIと、既存Full Previewの回帰試験・APKビルドを実行中。最終結果は検証完了後に更新する。
+検索エンジンのホストJUnitは6件成功。実データ再生成はバイト単位で一致。CIではsymbolモジュール18件と、実データ・API 28/34の入力保護7件の成功を確認した。Android 14の実IME試験と既存Full Preview CIの最終run・検証対象SHA・失敗や未検証事項は [PR #12の検証記録](https://github.com/kkrix3/JapaneseKeyboard/pull/12) を参照する。単体テストの成功を実機試験の成功として扱わない。
 
 署名済みFull Previewの既存ワークフローは `refs/heads/preview` での所有者の手動起動に限定されている。この作業ブランチからは条件を満たさないため、署名条件や鍵の設定は変更しない。生成されるunsigned Preview APKはそのままインストールできない。
+
+インストールして確認するための別IDのDebug検証版は、[Emoji Search Android 14](https://github.com/kkrix3/JapaneseKeyboard/actions/workflows/emoji-search-ci.yml) の成功runにある `emoji-search-debug-testbench` から取得する。APKと`metadata.json`を同梱し、実際にAPI 34へインストールした同一APKの署名・ID・検索asset・ARM64/x86_64のライブラリを検査する。IDは `com.kazumaproject.markdownhelperkeyboard.preview.testbench`。CI生成のDebug証明書を使い、通常のSumire/Previewとは別パッケージである。ARM64は同梱確認であり、Android 14実機での動作測定を意味しない。通常の非debug Full Preview unsigned APKは既存Preview CIのartifactを使う。取得先runとSHA-256はPRに記録する。
 
 ## 主な変更箇所と将来の接続
 

@@ -32,7 +32,7 @@ subprocess.run([str(apksigner), 'verify', str(apk)], check=True)
 out = root / 'emoji-search-debug-artifact'
 out.mkdir(exist_ok=True)
 shutil.copyfile(apk, out / 'sumire-emoji-search-debug-testbench.apk')
-metadata = {'commit': os.environ['GITHUB_SHA'], 'applicationId': package[1], 'versionCode': int(package[2]),
+metadata = {'commit': os.environ['GITHUB_SHA'], 'sourceTree': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], text=True).strip(), 'applicationId': package[1], 'versionCode': int(package[2]),
             'versionName': package[3], 'debuggable': True, 'signedWith': 'CI-generated Android debug key',
             'testedApi': 34, 'abis': ['arm64-v8a', 'x86_64'], 'bytes': apk.stat().st_size,
             'sha256': hashlib.sha256(apk.read_bytes()).hexdigest(), 'searchAssets': search_assets}
