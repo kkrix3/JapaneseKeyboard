@@ -55,6 +55,9 @@ class StandardFlickInputController(
         fun onPress(character: String)
         fun onFlick(character: String)
         fun onCommitted(character: String, isFlick: Boolean) { onFlick(character) }
+        fun onCommitted(character: String, isFlick: Boolean, direction: FlickDirection) {
+            onCommitted(character, isFlick)
+        }
         fun onSelectionChanged(character: String?, isFlick: Boolean) {}
         fun onCanceled() {}
     }
@@ -188,7 +191,7 @@ class StandardFlickInputController(
                 val finalDirection = calculateDirection(dx, dy)
                 characterMap[finalDirection]?.let {
                     if (it.isNotEmpty()) {
-                        listener?.onCommitted(it, finalDirection != FlickDirection.TAP)
+                        listener?.onCommitted(it, finalDirection != FlickDirection.TAP, finalDirection)
                     }
                 }
                 dismissPopup(animateSkinRelease = true)

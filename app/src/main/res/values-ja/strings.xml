@@ -1935,4 +1935,15 @@ ABC abc 0123456789　ＡＢＣ　１２３４５
     <string name="dictionary_browser_empty">該当する単語がありません。</string>
     <string name="dictionary_browser_error">辞書を読み込めませんでした。辞書ファイルを確認して再試行してください。</string>
     <string name="dictionary_browser_retry">再試行</string>
+    <string name="input_character_pop_animation_title">入力文字の浮き上がりアニメーション</string>
+    <string name="input_character_pop_animation_summary">スミレ・カスタムフリックキーボードで、入力した文字をその場で拡大しながらふわっと消します。</string>
+    <string name="input_character_pop_duration">文字アニメーションの再生時間（ms）</string>
+    <string name="input_character_pop_start_scale">開始拡大率（%）</string>
+    <string name="input_character_pop_end_scale">終了拡大率（%）</string>
+    <string name="input_character_pop_start_opacity">開始不透明度（%）</string>
+    <string name="input_character_pop_end_opacity">終了不透明度（%）</string>
+    <string name="input_character_pop_fade_start">フェード開始（再生時間の%）</string>
+    <string name="input_character_pop_distance">発生位置の基準距離（dp・0でキー中心）</string>
+    <string name="input_character_pop_scale_easing">拡大の補間関数</string>
+    <string name="input_character_pop_fade_easing">フェードの補間関数</string>
 </resources>

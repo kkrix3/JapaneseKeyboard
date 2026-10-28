@@ -1034,6 +1034,17 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private val runtimeInputPreferenceListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
             runOnMainThread { invalidateSmallTsu() }
+            if (key == null || key.startsWith("input_character_pop_")) {
+                runOnMainThread {
+                    val enabled = appPreference.input_character_pop_animation_preference
+                    (listOfNotNull(mainLayoutBinding?.customLayoutDefault,
+                        floatingKeyboardBinding?.customLayoutFloating) +
+                        splitInputs.values.map { it.binding.customLayoutFloating }).distinct().forEach {
+                        it.setInputCharacterPopSettings(appPreference.inputCharacterPopSettings)
+                        it.setInputCharacterPopEnabled(enabled)
+                    }
+                }
+            }
             if (key == null || key in SmallTsuPreferences.keys) {
                 runOnMainThread { syncSmallTsuPreferences() }
             }
@@ -15159,6 +15170,8 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     ) {
         flickView.kanaGestureObserver = kanaGestureObserver
         flickView.setOnFlickTextPreviewListener(sumireFlickTextPreviewListener)
+        flickView.setInputCharacterPopSettings(appPreference.inputCharacterPopSettings)
+        flickView.setInputCharacterPopEnabled(appPreference.input_character_pop_animation_preference)
         flickView.bindRuntimeGestureSettings(runtimeGestureSettingsSource)
         val tfbiPopupPresentationMode = appPreference.flick_tfbi_popup_presentation
         val tfbiFlickStartPositionMode = appPreference.flick_tfbi_flick_start_position
@@ -16070,13 +16083,28 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
             override fun onCommittedAction(
                 action: KeyAction, isFlick: Boolean, hapticContext: InputHapticContext
             ) {
-                if (deferCursorInput { onCommittedAction(action, isFlick, hapticContext) }) return
+                dispatchCommittedInput(action, isFlick, hapticContext)
+            }
+
+            override fun onCommittedTextAction(
+                action: KeyAction.Text, isFlick: Boolean, hapticContext: InputHapticContext,
+                onAccepted: () -> Unit
+            ) {
+                dispatchCommittedInput(action, isFlick, hapticContext, onAccepted)
+            }
+
+            private fun dispatchCommittedInput(
+                action: KeyAction, isFlick: Boolean, hapticContext: InputHapticContext,
+                onAccepted: (() -> Unit)? = null
+            ) {
+                if (deferCursorInput { dispatchCommittedInput(action, isFlick, hapticContext, onAccepted) }) return
                 if (action !in setOf(KeyAction.DoNothing, KeyAction.MoveCursorLeft, KeyAction.MoveCursorRight,
                         KeyAction.MoveCursorUp, KeyAction.MoveCursorDown)) endCursorSelectionForInput()
-                committedInputHaptics.dispatch(action, hapticContext) {
+                val accepted = committedInputHaptics.dispatch(action, hapticContext) {
                     val canPlay = currentInputConnection != null
                     performCommittedAction(action, isFlick) && canPlay
                 }
+                if (accepted) onAccepted?.invoke()
             }
 
             private fun performCommittedAction(action: KeyAction, isFlick: Boolean): Boolean {

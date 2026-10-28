@@ -1,5 +1,6 @@
 package com.kazumaproject.custom_keyboard.view
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
 import android.content.Context
 import android.graphics.Color
 import android.graphics.PorterDuff
@@ -312,6 +313,12 @@ class CrossFlickPopupView(context: Context) : FrameLayout(context), KeyboardFont
             }
         }
         updateCellColors()
+    }
+
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        val cell = cells[highlightedDirection] ?: return null
+        if (cell.textView.visibility != View.VISIBLE) return null
+        return InputCharacterPopGlyph.fromTextView(cell.textView, host, selectedText)
     }
 
     fun highlightDirection(direction: FlickDirection?) {

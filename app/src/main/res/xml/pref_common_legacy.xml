@@ -199,6 +199,101 @@
 
         <PreferenceCategory android:title="@string/keyboard_touch_effect_category_title">
 
+        <SwitchPreferenceCompat
+            android:defaultValue="false"
+            android:key="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_animation_title"
+            android:summary="@string/input_character_pop_animation_summary" />
+
+        <SeekBarPreference
+            android:key="input_character_pop_duration_ms"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_duration"
+            android:defaultValue="280"
+            android:max="1500"
+            app:min="50"
+            app:seekBarIncrement="10"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            android:key="input_character_pop_start_scale"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_start_scale"
+            android:defaultValue="100"
+            android:max="400"
+            app:min="10"
+            app:seekBarIncrement="5"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            android:key="input_character_pop_end_scale"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_end_scale"
+            android:defaultValue="180"
+            android:max="400"
+            app:min="10"
+            app:seekBarIncrement="5"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            android:key="input_character_pop_start_opacity"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_start_opacity"
+            android:defaultValue="100"
+            android:max="100"
+            app:min="0"
+            app:seekBarIncrement="1"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            android:key="input_character_pop_end_opacity"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_end_opacity"
+            android:defaultValue="0"
+            android:max="100"
+            app:min="0"
+            app:seekBarIncrement="1"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            android:key="input_character_pop_fade_start"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_fade_start"
+            android:defaultValue="20"
+            android:max="100"
+            app:min="0"
+            app:seekBarIncrement="1"
+            app:showSeekBarValue="true" />
+
+        <SeekBarPreference
+            android:key="input_character_pop_distance_dp"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_distance"
+            android:defaultValue="20"
+            android:max="100"
+            app:min="0"
+            app:seekBarIncrement="1"
+            app:showSeekBarValue="true" />
+
+        <ListPreference
+            android:key="input_character_pop_scale_easing"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_scale_easing"
+            android:defaultValue="ease_out"
+            android:entries="@array/input_character_pop_easing_entries"
+            android:entryValues="@array/input_character_pop_easing_values"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
+            android:key="input_character_pop_fade_easing"
+            android:dependency="input_character_pop_animation_preference"
+            android:title="@string/input_character_pop_fade_easing"
+            android:defaultValue="ease_out"
+            android:entries="@array/input_character_pop_easing_entries"
+            android:entryValues="@array/input_character_pop_easing_values"
+            app:useSimpleSummaryProvider="true" />
+
+
             <ListPreference
                 android:defaultValue="none"
                 android:entries="@array/keyboard_touch_effect_type_entries"

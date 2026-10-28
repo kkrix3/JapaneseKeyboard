@@ -1,5 +1,9 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopPlacement
+
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
+
 import com.kazumaproject.custom_keyboard.haptics.FlickStageHapticFeedback
 import com.kazumaproject.custom_keyboard.haptics.hierarchicalHapticPath
 import android.annotation.SuppressLint
@@ -89,6 +93,8 @@ class TfbiHierarchicalFlickController(
 
     var listener: TfbiListener? = null
     var stageHaptics: FlickStageHapticFeedback? = null
+    internal fun inputCharacterPopPlacement() = InputCharacterPopPlacement.slot(currentHighlight, gridPlacement = committedFlickDepth() >= 2)
+
     private var attachedView: View? = null
 
     private var currentMode = KeyMode.NORMAL
@@ -931,6 +937,13 @@ class TfbiHierarchicalFlickController(
         if (popupPresentationMode == TfbiPopupPresentationMode.GUIDE_ABOVE_KEY) {
             guidePopupHost.updateFingerPosition(currentFingerPosition)
         }
+    }
+
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        guidePopupHost.captureInputCharacterPop(host, selectedText)?.let { return it }
+        return if (popupWindow?.isShowing == true) {
+            popupView?.captureInputCharacterPop(host, selectedText)
+        } else null
     }
 
     private fun resetState() {

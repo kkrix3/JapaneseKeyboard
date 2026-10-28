@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.controller
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
+
 import android.content.Context
 import android.view.MotionEvent
 import android.view.View
@@ -118,6 +120,11 @@ internal class TfbiGuidePopupHost(
         configuredHighlightedColor = highlightedColor
         configuredTextColor = textColor
         applyConfiguredColors(guideView, arrowView)
+    }
+
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        val panel = guideView ?: return null
+        return if (overlay.isShowing(panel)) panel.captureInputCharacterPop(host, selectedText) else null
     }
 
     fun dismiss() {

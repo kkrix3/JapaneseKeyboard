@@ -1937,4 +1937,15 @@ ABC abc 0123456789　ＡＢＣ　１２３４５
     <string name="dictionary_browser_empty">No matching words.</string>
     <string name="dictionary_browser_error">Could not read this dictionary. Check its files and try again.</string>
     <string name="dictionary_browser_retry">Retry</string>
+    <string name="input_character_pop_animation_title">Input character pop animation</string>
+    <string name="input_character_pop_animation_summary">In Sumire and custom flick keyboards, make the selected character expand and fade after input.</string>
+    <string name="input_character_pop_duration">Pop duration (ms)</string>
+    <string name="input_character_pop_start_scale">Pop start scale (%)</string>
+    <string name="input_character_pop_end_scale">Pop end scale (%)</string>
+    <string name="input_character_pop_start_opacity">Pop start opacity (%)</string>
+    <string name="input_character_pop_end_opacity">Pop end opacity (%)</string>
+    <string name="input_character_pop_fade_start">Pop fade starts at (% of duration)</string>
+    <string name="input_character_pop_distance">Pop position distance (dp; 0 = key center)</string>
+    <string name="input_character_pop_scale_easing">Pop scale interpolation</string>
+    <string name="input_character_pop_fade_easing">Pop fade interpolation</string>
 </resources>

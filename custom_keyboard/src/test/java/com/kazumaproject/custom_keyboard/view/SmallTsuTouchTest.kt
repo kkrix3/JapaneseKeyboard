@@ -19,7 +19,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class) @Config(sdk=[35])
 class SmallTsuTouchTest {
     private class Harness(type: KeyType = KeyType.CROSS_FLICK, binding: DoubleTapBinding? = null,
-                          val tapText: String = "た", layout: KeyboardLayout? = null, stage: Boolean = false) {
+                          val tapText: String = "た", layout: KeyboardLayout? = null, stage: Boolean = false, pop: Boolean = false) {
         var reading = ""
         var revision = 0L
         var replacement: String? = null
@@ -39,6 +39,7 @@ class SmallTsuTouchTest {
         val view = FlickKeyboardView(context)
         fun snapshot() = SmallTsuSnapshot(owner,1,revision,"kana",reading)
         init {
+            view.setInputCharacterPopEnabled(pop)
             view.setTfbiPopupPresentationMode(TfbiPopupPresentationMode.GUIDE_ABOVE_KEY)
             view.setKeyboard(layout ?: KeyboardLayout(
                 keys=listOf(KeyData("た",0,0,true,KeyAction.Text(tapText),keyId="ta",keyType=type,doubleTapBinding=binding)),
@@ -68,6 +69,13 @@ class SmallTsuTouchTest {
                     hapticContexts += hapticContext
                     haptics.dispatch(action, hapticContext) { onAction(action, isFlick); true }
                 }
+                override fun onCommittedTextAction(
+                    action: KeyAction.Text, isFlick: Boolean, hapticContext: InputHapticContext,
+                    onAccepted: () -> Unit
+                ) {
+                    onCommittedAction(action, isFlick, hapticContext)
+                    onAccepted()
+                }
                 override fun onActionLongPress(action:KeyAction){session.cancel()}
                 override fun onActionUpAfterLongPress(action:KeyAction){}
                 override fun onFlickDirectionChanged(direction:FlickDirection){}
@@ -89,6 +97,17 @@ class SmallTsuTouchTest {
             val e=MotionEvent.obtain(down,time,action,key.left+key.width*x,key.top+key.height*y,0)
             view.onTouchEvent(e);e.recycle()
         }
+    }
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    @Test fun popKeepsSelectedTextWhileSmallTsuAndReleaseHapticsRemainImmediate() {
+        val h = Harness(pop = true)
+        h.tap(100); h.tap(200)
+        assertEquals("った", h.reading)
+        assertEquals(2, h.releases)
+        assertEquals(2, h.played.size)
+        val pop = org.robolectric.util.ReflectionHelpers.getField<com.kazumaproject.custom_keyboard.feedback.InputCharacterPop>(h.view, "inputCharacterPop")
+        assertEquals(listOf("た", "た"), pop.activeGlyphs.map { it.text })
+        h.activity.finish()
     }
     @Test fun realTouchCallbacksAreImmediateAndPairsDoNotOverlap(){
         val h=Harness();h.tap(100);assertEquals("た",h.reading)

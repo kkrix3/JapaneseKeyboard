@@ -1,5 +1,7 @@
 package com.kazumaproject.custom_keyboard.view
 
+import com.kazumaproject.custom_keyboard.feedback.InputCharacterPopGlyph
+
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
@@ -178,6 +180,30 @@ class TfbiGuidePopupView(context: Context) : View(context), KeyboardFontAware {
         }
 
         state.fingerPosition?.let { drawFingerMarker(canvas, panel, it) }
+    }
+
+    internal fun captureInputCharacterPop(host: View, selectedText: String): InputCharacterPopGlyph? {
+        val isCurrent = inputTextTransform(state.currentText) == selectedText
+        val slot = if (isCurrent) state.currentSlot else {
+            state.selectedOption?.takeIf { inputTextTransform(state.optionLabels[it].orEmpty()) == selectedText }
+                ?: state.optionLabels.entries.firstOrNull { inputTextTransform(it.value) == selectedText }?.key
+                ?: return null // Some guides show a suffix, not the committed string.
+        }
+        val inset = dp(1f)
+        val panel = RectF(inset, inset, width - inset, height - inset)
+        val rect = rectFor(slot, panel, panel.width() / 3f, panel.height() / 3f)
+        val active = isCurrent || slot == state.selectedOption
+        val compact = !isCurrent
+        val copy = Paint(if (active) activeTextPaint else textPaint)
+        val skin = KeyboardSkinRegistry.find(popupStyle.skinId)
+        copy.color = if (active) skin?.palette?.selectionText ?: activeTextColor else skin?.palette?.text ?: popupTextColor
+        copy.textSize = fitTextSize(selectedText,
+            if (active) rect.width() - dp(4f) - (if (compact) dp(4f) else dp(8f)) * 2 else rect.width() - dp(6f),
+            if (isCurrent) MAIN_TEXT_SCALE else OPTION_TEXT_SCALE,
+            if (isCurrent) MAIN_MIN_TEXT_SIZE_SP else OPTION_MIN_TEXT_SIZE_SP)
+        return InputCharacterPopGlyph.capture(
+            this, host, selectedText, copy, rect.centerX(),
+            rect.centerY() - (copy.ascent() + copy.descent()) / 2f)
     }
 
     private fun drawFingerMarker(
