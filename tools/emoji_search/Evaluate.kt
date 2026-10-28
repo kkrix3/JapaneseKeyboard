@@ -13,7 +13,7 @@ fun main(args: Array<String>) {
     val metadata = File(root, "symbol_keyboard/src/main/java/com/kazumaproject/domain/EmojiCategoryMetadata.kt").readText()
     val unicodeOrder = Regex("^[SPNFTAOYL]:([0-9A-F ]+)$", RegexOption.MULTILINE).findAll(metadata).map { row ->
         row.groupValues[1].split(' ').filter(String::isNotBlank).joinToString("") { String(Character.toChars(it.toInt(16))) }
-    }.toList().map(EmojiSearchNormalizer::identity).withIndex().associate { it.value to it.index }
+    }.toList().map(EmojiSearchNormalizer::identity).distinct().withIndex().associate { it.value to it.index }
     val inventory = File(tool, "bundled-emoji.tsv").readLines().map { it.substringBefore('\t') }
         .sortedBy { unicodeOrder[EmojiSearchNormalizer.identity(it)] ?: Int.MAX_VALUE }
     fun load() = EmojiSearchRepository.load(asset.reader(), inventory)
@@ -26,7 +26,7 @@ fun main(args: Array<String>) {
     val after = used()
     val engine = DictionaryEmojiSearchEngine(repo)
     val allQueries = mutableListOf<String>()
-    for (suite in listOf("regression", "holdout", "unseen")) {
+    for (suite in listOf("regression", "development", "unseen")) {
         val path = File(tool, "$suite.tsv")
         if (!path.exists()) continue
         val cases = path.readLines().filter { it.isNotBlank() && !it.startsWith('#') }.map { it.split('\t') }

@@ -1,0 +1,78 @@
+name: Emoji Search Android 14
+on:
+  push:
+    branches: [feature/emoji-semantic-search]
+  pull_request:
+    branches: [preview]
+    paths: ['symbol_keyboard/**', 'tools/emoji_search/**', '**/*EmojiSearch*', '.github/workflows/emoji-search-ci.yml']
+permissions:
+  contents: read
+concurrency:
+  group: emoji-search-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+jobs:
+  search:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      ZENZ_DEBUG_NATIVE_ABIS: x86_64
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android build dependencies
+        run: |
+          echo "ZENZ_MODEL_CACHE_DIR=$RUNNER_TEMP/zenz-model-cache" >> "$GITHUB_ENV"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
+      - name: Reproduce bundled search data
+        run: |
+          java tools/emoji_search/ExportBundledEmoji.java app/src/main/assets/emoji tools/emoji_search/bundled-emoji.tsv
+          python3 tools/emoji_search/generate.py
+          git diff --exit-code -- tools/emoji_search/bundled-emoji.tsv tools/emoji_search/manifest.json symbol_keyboard/src/main/assets/emoji_search
+      - name: Search engine and existing symbol unit tests
+        run: bash ./gradlew :symbol_keyboard:testDebugUnitTest --no-daemon --console=plain --max-workers=2
+      - name: Real inventory quality and editor isolation tests
+        run: bash ./gradlew :app:testFullStandardDebugUnitTest --tests '*EmojiSearch*' --no-daemon --console=plain --max-workers=2
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Android 14 real IME query, editor, skin, history and rotation
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: 34
+          profile: pixel_6_pro
+          cores: 2
+          ram-size: 3072M
+          heap-size: 512M
+          disk-size: 8192M
+          arch: x86_64
+          target: google_apis
+          enable-hw-keyboard: false
+          disable-spellchecker: true
+          disable-animations: true
+          pre-emulator-launch-script: >-
+            avd_config="${ANDROID_AVD_HOME}/test.avd/config.ini" &&
+            sed -i '/^[[:space:]]*hw\.keyboard[[:space:]]*=/d' "$avd_config" &&
+            printf '%s\n' 'hw.keyboard=no' >> "$avd_config"
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash tools/emoji_search/device-test.sh
+      - name: Upload search verification
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: emoji-search-verification
+          path: |
+            symbol_keyboard/build/test-results/
+            app/build/test-results/testFullStandardDebugUnitTest/
+            app/build/reports/emoji-search/
+            app/build/outputs/androidTest-results/connected/
+            app/build/reports/androidTests/connected/
+            emoji-search-device/
+          retention-days: 30
