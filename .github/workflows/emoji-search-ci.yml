@@ -31,6 +31,7 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0" "ndk;29.0.14206865" "cmake;3.22.1"
       - name: Reproduce bundled search data
         run: |
+          python3 -m unittest discover -s tools/emoji_search -p 'test_*.py' -v
           java tools/emoji_search/ExportBundledEmoji.java app/src/main/assets/emoji tools/emoji_search/bundled-emoji.tsv
           python3 tools/emoji_search/generate.py
           git diff --exit-code -- tools/emoji_search/bundled-emoji.tsv tools/emoji_search/manifest.json symbol_keyboard/src/main/assets/emoji_search

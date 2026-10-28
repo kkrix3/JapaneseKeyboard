@@ -3,7 +3,6 @@ package com.kazumaproject.markdownhelperkeyboard
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.UiAutomation
 import android.content.ContextWrapper
-import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Debug
 import android.os.ParcelFileDescriptor
@@ -35,8 +34,6 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.File
-import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
 
 /** Real IME/editor/OS touch test; run only in an isolated preview.testbench emulator. */
@@ -85,6 +82,7 @@ class EmojiSearchImeDeviceTest {
         }
         check(stable >= 3) { "IME control bounds did not settle: $previous" }
         val bounds = previous
+        android.util.Log.i("EmojiSearchProbe", "touch=$label bounds=$bounds windowFocus=${main { view.hasWindowFocus() }}")
         val start = SystemClock.uptimeMillis()
         for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP)) {
             val moved = action != MotionEvent.ACTION_DOWN
@@ -96,11 +94,9 @@ class EmojiSearchImeDeviceTest {
         }
     }
     private fun saveProbeScreenshot(name: String) {
-        val bitmap = automation.takeScreenshot() ?: return
-        try {
-            val path = File(ins.targetContext.getExternalFilesDir(null), "$name.png")
-            FileOutputStream(path).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
-        } finally { bitmap.recycle() }
+        // Shell capture works even when UiAutomation screenshot support is absent.
+        shell("screencap -p /sdcard/$name.png")
+        android.util.Log.i("EmojiSearchProbe", "screenshot=$name")
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -157,6 +153,13 @@ class EmojiSearchImeDeviceTest {
             val before = snapshot()
             val pssBefore = Debug.getPss()
             val opened = System.nanoTime()
+            saveProbeScreenshot("emoji-search-before-open")
+            main {
+                view.findViewById<View>(com.kazumaproject.symbol_keyboard.R.id.emoji_search_query).setOnTouchListener { _, event ->
+                    android.util.Log.i("EmojiSearchProbe", "toolbar-motion=${event.actionMasked} local=${event.x},${event.y}")
+                    false
+                }
+            }
             touch(view.findViewById(com.kazumaproject.symbol_keyboard.R.id.emoji_search_query))
             await("Search toolbar OS tap opens private query") { main { view.isEmojiSearchOpen } }
             android.util.Log.i("EmojiSearchProbe", "stage=search-open")

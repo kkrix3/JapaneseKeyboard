@@ -2,8 +2,6 @@
 """Rebuild the offline search asset from reviewed, vendored inputs. No network needed."""
 import hashlib
 import json
-import re
-import unicodedata
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 from pathlib import Path
@@ -15,15 +13,26 @@ OUT = ROOT / 'symbol_keyboard/src/main/assets/emoji_search'
 def key(text):
     return '-'.join(f'{ord(c):X}' for c in text if ord(c) not in (0xFE0E, 0xFE0F) and not 0x1F3FB <= ord(c) <= 0x1F3FF)
 
-def generate():
+def read_cldr_metadata(paths):
     metadata = defaultdict(lambda: {'name': '', 'keywords': set(), 'aliases': set(), 'related': set()})
-    for name in ('ja.xml', 'ja-derived.xml'):
-        for entry in ET.parse(HERE / 'upstream' / name).iter('annotation'):
-            record = metadata[key(entry.attrib['cp'])]
+    for path in paths:
+        for entry in ET.parse(path).iter('annotation'):
+            symbol = entry.attrib['cp']
+            # This asset indexes base emoji. A skin variant's TTS/keywords describe
+            # that variant, not the base; do not merge them through the matching ID.
+            if any(0x1F3FB <= ord(c) <= 0x1F3FF for c in symbol):
+                continue
+            record = metadata[key(symbol)]
             if entry.attrib.get('type') == 'tts':
-                record['name'] = entry.text or ''
+                if not record['name']:
+                    record['name'] = entry.text or ''
             else:
                 record['keywords'].update((entry.text or '').split(' | '))
+    return metadata
+
+
+def generate():
+    metadata = read_cldr_metadata(HERE / 'upstream' / name for name in ('ja.xml', 'ja-derived.xml'))
     usage = json.loads((HERE / 'usages.json').read_text())
     for concept in usage['concepts']:
         terms = concept['terms'].split('|')

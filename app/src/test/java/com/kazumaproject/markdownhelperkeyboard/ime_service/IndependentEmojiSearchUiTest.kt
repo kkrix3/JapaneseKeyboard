@@ -1,5 +1,7 @@
 package com.kazumaproject.markdownhelperkeyboard.ime_service
 
+import android.app.Activity
+import org.robolectric.Robolectric
 import android.content.Context
 import android.os.Looper
 import android.view.ContextThemeWrapper
@@ -130,6 +132,8 @@ class IndependentEmojiSearchUiTest {
 
     @Test fun aHiddenSymbolSurfaceDropsItsQueryAndReleasesTheSearchTarget() {
         val (view, owner) = view()
+        val activity = Robolectric.buildActivity(Activity::class.java).setup()
+        activity.get().setContentView(view)
         val targets = mutableListOf<Boolean>()
         view.setOnEmojiSearchStateChanged { targets.add(it) }
         view.openEmojiSearch(); view.appendEmojiSearchText("かんしゃ")
@@ -140,6 +144,7 @@ class IndependentEmojiSearchUiTest {
         view.openEmojiSearch()
         assertEquals(context.getString(com.kazumaproject.symbol_keyboard.R.string.emoji_search_hint), text(view))
         view.release(); owner.registry.currentState = Lifecycle.State.DESTROYED
+        activity.pause().stop().destroy()
     }
 
     @Test fun openingSearchCancelsAnAlreadyHeldEditorDeleteAndConsumesItsRelease() {

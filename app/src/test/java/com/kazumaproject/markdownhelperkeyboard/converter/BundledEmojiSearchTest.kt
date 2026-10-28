@@ -35,6 +35,9 @@ class BundledEmojiSearchTest {
         val repository = EmojiSearchRepository.load(File(root, "symbol_keyboard/src/main/assets/emoji_search/ja.tsv").reader(), inventory)
         assertEquals(1902, repository.entries.size)
         assertTrue(repository.entries.all { it.name.isNotBlank() })
+        assertEquals("祈り", repository.entries.single { it.identity == "1F64F" }.name)
+        assertEquals("力こぶ", repository.entries.single { it.identity == "1F4AA" }.name)
+        assertTrue(repository.entries.none { "肌色" in it.name })
         val engine = DictionaryEmojiSearchEngine(repository)
         val output = File(root, "app/build/reports/emoji-search").apply { mkdirs() }
         for (suite in listOf("regression", "development", "unseen")) {

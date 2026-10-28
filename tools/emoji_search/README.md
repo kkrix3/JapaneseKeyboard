@@ -73,3 +73,9 @@ review alongside normal Sumire. It uses an ephemeral CI debug certificate, not t
 Preview distribution certificate. `metadata.json` records the source SHA and APK
 SHA-256. The ordinary Full Preview unsigned APK remains available from the existing
 Preview workflow; its production signing restrictions are unchanged.
+
+Skin-specific CLDR rows are excluded before forming base-emoji matching IDs.
+They must not overwrite a base name (for example, 祈り) with a variant name
+(祈り: 濃い肌色), or add all skin colors to every person. Runtime matching can
+still ignore skin modifiers while the existing UI selects and commits a variant.
+`test_generate.py` and `BundledEmojiSearchTest` cover this distinction.
