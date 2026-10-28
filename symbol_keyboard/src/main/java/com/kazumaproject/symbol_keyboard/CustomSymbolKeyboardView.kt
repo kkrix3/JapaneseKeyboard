@@ -15,6 +15,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
 import android.util.TypedValue
+import android.view.KeyEvent
 import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
@@ -61,6 +62,18 @@ import com.kazumaproject.listeners.ImageItemClickListener
 import com.kazumaproject.listeners.ReturnToTenKeyButtonClickListener
 import com.kazumaproject.listeners.SymbolRecyclerViewItemClickListener
 import com.kazumaproject.listeners.SymbolRecyclerViewItemLongClickListener
+import com.kazumaproject.emoji.search.DictionaryEmojiSearchEngine
+import com.kazumaproject.emoji.search.EmojiSearchEngine
+import com.kazumaproject.emoji.search.EmojiSearchRepository
+import com.kazumaproject.emoji.search.EmojiSearchInputState
+import com.kazumaproject.emoji.search.EmojiSearchInputView
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -121,6 +134,159 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
         updateEmojiCategoryTabIcons(snapshot)
     }
 
+    private val searchInput = EmojiSearchInputState()
+    private lateinit var searchQuery: TextView
+    private lateinit var searchBar: View
+    private lateinit var searchClear: View
+    private lateinit var searchClose: View
+    private lateinit var searchStatus: TextView
+    private lateinit var searchPad: EmojiSearchInputView
+    private var searchJob: Job? = null
+    private var searchEngineLoad: Deferred<EmojiSearchEngine>? = null
+    private var searchGeneration = 0L
+    private var searchStateListener: ((Boolean) -> Unit)? = null
+    var isEmojiSearchOpen: Boolean = false
+        private set
+
+    fun setOnEmojiSearchStateChanged(listener: (Boolean) -> Unit) { searchStateListener = listener }
+
+    fun openEmojiSearch() {
+        if (currentMode != SymbolMode.EMOJI || isEmojiSearchOpen) return
+        isEmojiSearchOpen = true
+        skinTonePopup?.dismiss()
+        pagingJob?.cancel()
+        categoryTab.visibility = View.GONE
+        searchClear.visibility = View.VISIBLE
+        searchClose.visibility = View.VISIBLE
+        searchPad.visibility = View.VISIBLE
+        searchStateListener?.invoke(true)
+        requestEmojiSearch()
+    }
+
+    fun closeEmojiSearch() {
+        if (!isEmojiSearchOpen) return
+        isEmojiSearchOpen = false
+        searchGeneration++
+        searchJob?.cancel()
+        searchJob = null
+        searchInput.clear()
+        searchPad.dismissChooser()
+        searchPad.visibility = View.GONE
+        searchClear.visibility = View.GONE
+        searchClose.visibility = View.GONE
+        searchStatus.visibility = View.GONE
+        searchQuery.setText(R.string.emoji_search_open)
+        categoryTab.visibility = View.VISIBLE
+        searchStateListener?.invoke(false)
+        updateSymbolsForCategory(categoryTab.selectedTabPosition.coerceAtLeast(0))
+    }
+
+    fun handleEmojiSearchBack(): Boolean {
+        if (!isEmojiSearchOpen) return false
+        if (searchPad.dismissChooser()) return true
+        if (searchPad.visibility == View.VISIBLE) searchPad.visibility = View.GONE
+        else closeEmojiSearch()
+        return true
+    }
+
+    /** Called before IMEService mutates composition/cursor state. Never forwards editing keys. */
+    fun handleEmojiSearchKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (!isEmojiSearchOpen) return false
+        when (keyCode) {
+            KeyEvent.KEYCODE_BACK, KeyEvent.KEYCODE_ESCAPE -> handleEmojiSearchBack()
+            KeyEvent.KEYCODE_DEL -> { searchInput.delete(); requestEmojiSearch() }
+            KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_TAB -> Unit
+            KeyEvent.KEYCODE_ENTER -> searchPad.visibility = View.GONE
+            else -> {
+                if (event?.isPrintingKey != true && keyCode != KeyEvent.KEYCODE_SPACE) return false
+                val cp = event?.unicodeChar ?: 0
+                if (cp > 0 && event?.isCtrlPressed != true && event?.isMetaPressed != true) {
+                    searchInput.append(String(Character.toChars(cp)))
+                    requestEmojiSearch()
+                }
+            }
+        }
+        return true
+    }
+
+    fun appendEmojiSearchText(text: String): Boolean {
+        if (!isEmojiSearchOpen) return false
+        searchInput.append(text)
+        requestEmojiSearch()
+        return true
+    }
+
+    private fun requestEmojiSearch() {
+        if (!isEmojiSearchOpen) return
+        val owner = lifecycleOwner ?: return
+        val generation = ++searchGeneration
+        searchJob?.cancel()
+        pagingJob?.cancel()
+        val query = searchInput.query
+        searchQuery.text = query.ifEmpty { resources.getString(R.string.emoji_search_hint) }
+        searchStatus.visibility = View.GONE
+        // Old results must not be tappable for a different, newly typed query.
+        symbolAdapter.submitData(owner.lifecycle, PagingData.empty())
+        recycler.adapter = symbolAdapter
+        gridLM.spanSizeLookup = GridLayoutManager.DefaultSpanSizeLookup()
+        gridLM.orientation = RecyclerView.VERTICAL
+        gridLM.spanCount = 7
+        symbolAdapter.setItemMargins(4, 3, context)
+        symbolAdapter.symbolTextSize = if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) 36f else 30f
+        symbolAdapter.showSkinToneIndicators = true
+        if (searchEngineLoad == null) {
+            val inventory = emojiMap.values.flatten()
+            val labels = inventory.associate { it.symbol to resources.getString(emojiCategoryLabelRes.getValue(it.category)) }
+            searchEngineLoad = owner.lifecycleScope.async(Dispatchers.IO) {
+                val repository = context.assets.open("emoji_search/ja.tsv").bufferedReader().use {
+                    EmojiSearchRepository.load(it, inventory.map { emoji -> emoji.symbol }, labels)
+                }
+                DictionaryEmojiSearchEngine(repository)
+            }
+        }
+        searchJob = owner.lifecycleScope.launch {
+            if (query.isBlank()) return@launch
+            try {
+                if (searchEngineLoad?.isCompleted != true) {
+                    searchStatus.setText(R.string.emoji_search_loading)
+                    searchStatus.visibility = View.VISIBLE
+                }
+                delay(50)
+                val engine = requireNotNull(searchEngineLoad).await()
+                val matches = withContext(Dispatchers.Default) { engine.search(query, 100) }
+                ensureActive()
+                if (!isEmojiSearchOpen || generation != searchGeneration) return@launch
+                val display = matches.map { EmojiSkinToneSupport.withSkinTone(it.symbol, defaultEmojiSkinTone) }
+                symbolAdapter.submitData(owner.lifecycle, PagingData.from(display))
+                recycler.scrollToPosition(0)
+                searchStatus.setText(R.string.emoji_search_empty)
+                searchStatus.visibility = if (matches.isEmpty()) View.VISIBLE else View.GONE
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: java.io.IOException) {
+                showSearchFailure(generation)
+            } catch (_: IllegalArgumentException) {
+                showSearchFailure(generation)
+            }
+        }
+    }
+
+    private fun showSearchFailure(generation: Long) {
+        if (!isEmojiSearchOpen || generation != searchGeneration) return
+        searchEngineLoad = null
+        searchStatus.setText(R.string.emoji_search_unavailable)
+        searchStatus.visibility = View.VISIBLE
+    }
+
+    private fun applySearchColors() {
+        searchQuery.setTextColor(themeIconColor)
+        (searchClear as TextView).setTextColor(themeIconColor)
+        (searchClose as TextView).setTextColor(themeIconColor)
+        searchStatus.setTextColor(themeIconColor)
+        searchPad.setColors(themeIconColor, themeKeyBackgroundColor)
+    }
+
     private var pagingJob: Job? = null
     private var lifecycleOwner: LifecycleOwner? = null
     private var skinTonePopup: PopupWindow? = null
@@ -153,6 +319,22 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
             keyboardFontSnapshot,
         )
 
+        searchBar = findViewById(R.id.emoji_search_bar)
+        searchQuery = findViewById(R.id.emoji_search_query)
+        searchClear = findViewById(R.id.emoji_search_clear)
+        searchClose = findViewById(R.id.emoji_search_close)
+        searchStatus = findViewById(R.id.emoji_search_status)
+        searchPad = findViewById(R.id.emoji_search_pad)
+        searchQuery.setOnClickListener {
+            if (!isEmojiSearchOpen) openEmojiSearch()
+            else searchPad.visibility = if (searchPad.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }
+        searchClear.setOnClickListener { searchInput.clear(); requestEmojiSearch() }
+        searchClose.setOnClickListener { closeEmojiSearch() }
+        searchPad.onText = { searchInput.append(it); requestEmojiSearch() }
+        searchPad.onModify = { searchInput.modifyLastKana(); requestEmojiSearch() }
+        searchPad.onHide = { searchPad.dismissChooser(); searchPad.visibility = View.GONE }
+
         // Initialize default colors
         themeIconColor =
             ContextCompat.getColor(context, com.kazumaproject.core.R.color.keyboard_icon_color)
@@ -160,6 +342,8 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
             ContextCompat.getColor(context, com.kazumaproject.core.R.color.enter_key_bg)
         themeKeyBackgroundColor =
             ContextCompat.getColor(context, com.kazumaproject.core.R.color.keyboard_bg)
+
+        applySearchColors()
 
         recycler.apply {
             layoutManager = gridLM
@@ -188,6 +372,8 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
                 showSkinTonePopup(str, anchor)
                 return@setOnItemLongClickListener
             }
+
+            if (isEmojiSearchOpen) return@setOnItemLongClickListener
 
             val historyList = when (currentMode) {
                 SymbolMode.EMOJI -> historyEmojiList
@@ -220,22 +406,25 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
         }
 
         returnButton.setOnClickListener {
-            returnListener?.onClick()
+            if (isEmojiSearchOpen) closeEmojiSearch() else returnListener?.onClick()
         }
 
         deleteButton.apply {
             val handler = Handler(Looper.getMainLooper())
             var isLongPressed = false
+            var searchGesture = false
 
             val longPressRunnable = Runnable {
                 isLongPressed = true
-                deleteLongListener?.onLongClickListener()
+                if (searchGesture) { searchInput.clear(); requestEmojiSearch() }
+                else deleteLongListener?.onLongClickListener()
             }
 
             setOnTouchListener { _, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         isLongPressed = false
+                        searchGesture = isEmojiSearchOpen
                         handler.postDelayed(
                             longPressRunnable,
                             ViewConfiguration.getLongPressTimeout().toLong()
@@ -245,7 +434,11 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
 
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         handler.removeCallbacks(longPressRunnable)
-                        if (isLongPressed) {
+                        if (searchGesture) {
+                            if (event.action == MotionEvent.ACTION_UP && !isLongPressed) {
+                                searchInput.delete(); requestEmojiSearch()
+                            }
+                        } else if (isLongPressed) {
                             onDeleteFingerUpListener?.invoke()
                         } else {
                             deleteClickListener?.onClick()
@@ -261,7 +454,9 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
 
         modeTab.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
+                closeEmojiSearch()
                 currentMode = SymbolMode.entries[tab?.position ?: 0]
+                searchBar.visibility = if (currentMode == SymbolMode.EMOJI) View.VISIBLE else View.GONE
                 symbolAdapter.setKeyboardFont(keyboardFontSnapshot, currentMode != SymbolMode.EMOJI)
                 buildCategoryTabs()
                 categoryTab.getTabAt(0)?.select()
@@ -331,6 +526,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
         themeSelectedIconColor = ContextCompat.getColor(context, com.kazumaproject.core.R.color.enter_key_bg)
         themeKeyBackgroundColor = ContextCompat.getColor(context, com.kazumaproject.core.R.color.keyboard_bg)
         symbolAdapter.setThemeColors(null, null)
+        applySearchColors()
         // Rebuild selection colors using the same path as a fresh Default view.
         val mode = currentMode
         buildModeTabs()
@@ -357,6 +553,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
         this.themeIconColor = iconColor
         this.themeSelectedIconColor = selectedIconColor
         this.themeKeyBackgroundColor = keyBackgroundColor
+        applySearchColors()
         this.isCustomThemeApplied = true
         this.liquidGlassEnable = liquidGlassEnable
 
@@ -598,6 +795,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
     )
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (isEmojiSearchOpen) return super.dispatchTouchEvent(ev)
         val loc = IntArray(2).also { recycler.getLocationOnScreen(it) }
         val y = ev.rawY
         if (y >= loc[1] && y <= loc[1] + recycler.height) {
@@ -688,6 +886,9 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
         symbolMode: SymbolMode = SymbolMode.EMOJI,
         defaultEmojiSkinTone: String = EmojiSkinToneSupport.DEFAULT_SKIN_TONE
     ) {
+        closeEmojiSearch()
+        searchEngineLoad?.cancel()
+        searchEngineLoad = null
         this.symbolsHistory = symbolsHistory
         this.clipBoardItems = clipBoardItems
         this.defaultEmojiSkinTone =
@@ -721,6 +922,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
             .toSortedMap(categoryOrder)
 
         currentMode = symbolMode
+        searchBar.visibility = if (currentMode == SymbolMode.EMOJI) View.VISIBLE else View.GONE
         buildModeTabs()
         buildCategoryTabs()
         modeTab.getTabAt(symbolMode.ordinal)?.select()
@@ -895,6 +1097,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
     }
 
     private fun updateSymbolsForCategory(index: Int) {
+        if (isEmojiSearchOpen) { requestEmojiSearch(); return }
         KeyboardFontApplicator.applyToTextViews(modeTab, keyboardFontSnapshot) { true }
         KeyboardFontApplicator.applyToTextViews(categoryTab, keyboardFontSnapshot) { true }
         symbolAdapter.setKeyboardFont(keyboardFontSnapshot, currentMode != SymbolMode.EMOJI)
@@ -1093,6 +1296,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
     }
 
     private fun isHistoryCategorySelected(): Boolean {
+        if (isEmojiSearchOpen) return false
         return when (currentMode) {
             SymbolMode.EMOJI -> historyEmojiList.isNotEmpty() && categoryTab.selectedTabPosition == 0
             SymbolMode.EMOTICON -> historyEmoticonList.isNotEmpty() && categoryTab.selectedTabPosition == 0
@@ -1125,7 +1329,19 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
         return Color.argb(a, r, g, b)
     }
 
+    override fun onDetachedFromWindow() {
+        closeEmojiSearch()
+        searchEngineLoad?.cancel()
+        searchEngineLoad = null
+        pagingJob?.cancel()
+        super.onDetachedFromWindow()
+    }
+
     fun release() {
+        closeEmojiSearch()
+        searchEngineLoad?.cancel()
+        searchEngineLoad = null
+        searchStateListener = null
         skinTonePopup?.dismiss()
         skinTonePopup = null
         pagingJob?.cancel()
@@ -1180,6 +1396,8 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
     private val categoryOrder = compareBy<EmojiCategory> { it.ordinal }
 
     fun switchToClipboardMode(selectCategoryIndex: Int = 0) {
+        closeEmojiSearch()
+        searchBar.visibility = View.GONE
         // Modeを切り替え
         currentMode = SymbolMode.CLIPBOARD
 
@@ -1198,6 +1416,8 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
     }
 
     fun switchToSymbolMode(mode: SymbolMode, selectCategoryIndex: Int = 0) {
+        closeEmojiSearch()
+        searchBar.visibility = if (mode == SymbolMode.EMOJI) View.VISIBLE else View.GONE
         currentMode = mode
         buildModeTabs()
         buildCategoryTabs()

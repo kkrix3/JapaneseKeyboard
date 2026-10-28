@@ -16,4 +16,14 @@
     <string name="emoji_category_symbols">Symbols</string>
     <string name="emoji_category_flags">Flags</string>
     <string name="emoji_category_unknown">Other</string>
+    <string name="emoji_search_open">Search emoji by meaning</string>
+    <string name="emoji_search_hint">Type Japanese kana · flick or hold a key</string>
+    <string name="emoji_search_clear">Clear</string>
+    <string name="emoji_search_close">Close</string>
+    <string name="emoji_search_hide_pad">Hide</string>
+    <string name="emoji_search_modify">゛/Small</string>
+    <string name="emoji_search_kana_key">%1$s · hold to choose a character</string>
+    <string name="emoji_search_empty">No matches. Try another word.</string>
+    <string name="emoji_search_loading">Loading emoji search…</string>
+    <string name="emoji_search_unavailable">Emoji search is unavailable. Close and try again.</string>
 </resources>

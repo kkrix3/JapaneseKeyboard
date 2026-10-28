@@ -1,0 +1,17 @@
+{
+  "cldr": "48.2",
+  "unicode_categories": "17.0",
+  "bundled_symbols": 1902,
+  "identities": 1902,
+  "missing_cldr_names": [],
+  "usage_concepts": 73,
+  "sha256": {
+    "LICENSE": "b49d0e9f8ead51ca8b7df6fec89cc3ae6809198b4b9d43c74216da0118f23f5b",
+    "ja-derived.xml": "4f2e1b1e64594cabbe12c6f60cee497863923f49833e1631942f16d015838e67",
+    "ja.xml": "27b1009d4ca4cb61b68a9e8c52f974629d76d00b95711bd984783bc0f58d3da4",
+    "tango_emoji.dat": "f05fcb3b56aaf683910847342a33e36009676ad9a5abc2d43d3620dbc07700a4",
+    "token_emoji.dat": "1c25ddcf25f61595915f3a37e1d76665a7eeff2110d2521322817618e0f535a5",
+    "yomi_emoji.dat": "cdd5f223ccfcb63f22a317b5a9aa97e240a98b28571fbf4905758d5205162950"
+  },
+  "asset_bytes": 300910
+}
