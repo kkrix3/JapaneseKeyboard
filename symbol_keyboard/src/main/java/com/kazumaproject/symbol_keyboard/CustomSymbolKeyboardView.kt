@@ -183,6 +183,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
 
     fun handleEmojiSearchBack(): Boolean {
         if (!isEmojiSearchOpen) return false
+        if (skinTonePopup?.isShowing == true) { skinTonePopup?.dismiss(); return true }
         if (searchPad.dismissChooser()) return true
         if (searchPad.visibility == View.VISIBLE) searchPad.visibility = View.GONE
         else closeEmojiSearch()

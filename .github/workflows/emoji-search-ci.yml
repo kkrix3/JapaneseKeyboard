@@ -35,8 +35,12 @@ jobs:
           python3 tools/emoji_search/generate.py
           git diff --exit-code -- tools/emoji_search/bundled-emoji.tsv tools/emoji_search/manifest.json symbol_keyboard/src/main/assets/emoji_search
       - name: Search engine and existing symbol unit tests
+        id: symbol
+        continue-on-error: true
         run: bash ./gradlew :symbol_keyboard:testDebugUnitTest --no-daemon --console=plain --max-workers=2
       - name: Real inventory quality and editor isolation tests
+        id: app
+        continue-on-error: true
         run: bash ./gradlew :app:testFullStandardDebugUnitTest --tests '*EmojiSearch*' --no-daemon --console=plain --max-workers=2
       - name: Enable KVM
         run: |
@@ -76,3 +80,9 @@ jobs:
             app/build/reports/androidTests/connected/
             emoji-search-device/
           retention-days: 30
+      - name: Require both unit suites
+        if: always()
+        env:
+          SYMBOL_RESULT: ${{ steps.symbol.outcome }}
+          APP_RESULT: ${{ steps.app.outcome }}
+        run: test "$SYMBOL_RESULT" = success && test "$APP_RESULT" = success

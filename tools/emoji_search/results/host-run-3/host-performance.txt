@@ -1,0 +1,9 @@
+inventory=1902
+asset_bytes=300910
+load_ms=37.979173
+retained_heap_delta_bytes=1181792
+queries=1520
+p50_ms=0.400526
+p95_ms=0.649171
+p99_ms=0.976336
+allocated_bytes_per_query=3159

@@ -1,9 +1,7 @@
-inventory=1902
-asset_bytes=300910
-load_ms=28.877841
-retained_heap_delta_bytes=1167256
-queries=1520
-p50_ms=0.410139
-p95_ms=0.700457
-p99_ms=1.202505
-allocated_bytes_per_query=4097
+Independent warmed JVM starts: 3; 76 queries x 20 repeats per start
+median_load_ms=28.047825
+median_retained_heap_delta_bytes=1174768.0
+median_p50_ms=0.392775
+median_p95_ms=0.647701
+median_p99_ms=0.976336
+median_allocated_bytes_per_query=3159.0

@@ -9,12 +9,13 @@ data class EmojiSearchResult(val identity: String, val symbol: String, val name:
 
 /** Immutable, offline and independent of Android, fonts, history and language models. */
 class DictionaryEmojiSearchEngine(private val repository: EmojiSearchRepository) : EmojiSearchEngine {
+    private val tokenSeparator = Regex("[\\s\\u3000]+")
     override fun search(query: String, limit: Int): List<EmojiSearchResult> {
         if (limit <= 0) return emptyList()
         val bounded = query.take(EmojiSearchNormalizer.MAX_QUERY_LENGTH)
         val q = EmojiSearchNormalizer.text(bounded)
         if (q.isEmpty()) return emptyList()
-        val tokens = bounded.split(Regex("[\\s\\u3000]+"))
+        val tokens = bounded.split(tokenSeparator)
             .map(EmojiSearchNormalizer::text).filter(String::isNotEmpty).distinct()
         val emojiId = EmojiSearchNormalizer.identity(bounded.trim())
         val ranked = ArrayList<Pair<EmojiSearchRepository.Entry, Int>>()
@@ -46,8 +47,8 @@ class DictionaryEmojiSearchEngine(private val repository: EmojiSearchRepository)
         val keywords = matchTerms(entry.keywords, query, 1000)
         val related = matchTerms(entry.related, query, 800)
         val categories = matchTerms(entry.categories, query, 600)
-        val best = maxOf((names ushr 32).toInt(), (usages ushr 32).toInt(),
-            (keywords ushr 32).toInt(), (related ushr 32).toInt(), (categories ushr 32).toInt())
+        val best = maxOf(maxOf((names ushr 32).toInt(), (usages ushr 32).toInt()),
+            maxOf((keywords ushr 32).toInt(), (related ushr 32).toInt()), (categories ushr 32).toInt())
         val evidence = names.toInt() + usages.toInt() + keywords.toInt() + related.toInt() + categories.toInt()
         return if (best == 0) 0 else best + minOf(evidence - 1, 3) * 10
     }

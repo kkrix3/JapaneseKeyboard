@@ -31,7 +31,7 @@ class EmojiSearchEngineTest {
 1F602\t涙\t\t感謝する\t
 1F603\t笑い\t\t深い感謝\t
 1F604\t喜び\t\t\t感謝
-""".trimIndent(), listOf("😀", "😁", "😂", "😃", "😄"))
+""".trimIndent().replace("\\t", "\t"), listOf("😀", "😁", "😂", "😃", "😄"))
         val results = DictionaryEmojiSearchEngine(repo).search("感謝", 10)
         assertEquals("😀", results.first().symbol)
         assertTrue(results.indexOfFirst { it.symbol == "😁" } < results.indexOfFirst { it.symbol == "😂" })

@@ -8703,6 +8703,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     private fun updateEmojiSearchBackCallback(register: Boolean) {
+        if (register == emojiSearchBackRegistered) return
         if (Build.VERSION.SDK_INT < 33) return
         val dispatcher = window.window?.onBackInvokedDispatcher ?: return
         if (register && !emojiSearchBackRegistered) {
