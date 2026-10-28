@@ -1160,6 +1160,9 @@ dependencies {
 
     // JUnit
     testImplementation "junit:junit:4.13.2"
+    // Search probes inspect SymbolAdapter's PagingDataAdapter superclass.
+    testImplementation 'androidx.paging:paging-runtime-ktx:3.3.6'
+    androidTestImplementation 'androidx.paging:paging-runtime-ktx:3.3.6'
 
     // Mockito for mocking objects
     testImplementation "org.mockito:mockito-core:5.24.0"

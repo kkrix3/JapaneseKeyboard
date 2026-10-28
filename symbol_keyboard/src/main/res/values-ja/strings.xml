@@ -16,4 +16,14 @@
     <string name="emoji_category_symbols">記号</string>
     <string name="emoji_category_flags">旗</string>
     <string name="emoji_category_unknown">その他</string>
+    <string name="emoji_search_open">絵文字を意味で検索</string>
+    <string name="emoji_search_hint">かなで検索・フリック／長押しで選択</string>
+    <string name="emoji_search_clear">消去</string>
+    <string name="emoji_search_close">閉じる</string>
+    <string name="emoji_search_hide_pad">隠す</string>
+    <string name="emoji_search_modify">゛小</string>
+    <string name="emoji_search_kana_key">%1$s・長押しで文字を選択</string>
+    <string name="emoji_search_empty">見つかりません。別のことばで検索してください。</string>
+    <string name="emoji_search_loading">検索データを準備中…</string>
+    <string name="emoji_search_unavailable">検索データを読み込めません。閉じて再度お試しください。</string>
 </resources>
