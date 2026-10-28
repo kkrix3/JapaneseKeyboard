@@ -2869,6 +2869,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private fun startSplitKeyboard() {
         if (splitController != null || splitLoadingJob?.isActive == true) return
         val main = mainLayoutBinding ?: return
+        resetEmojiSearch()
         disableKeyboardLayoutEditMode()
         stopAllOngoingKeyLongPresses()
         floatingKeyboardView?.dismiss()
@@ -10264,6 +10265,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private fun applyFloatingModeState(isFloatingMode: Boolean) {
         if (splitController != null || splitLoadingJob?.isActive == true) { splitController?.refresh(); return }
         val mainView = mainLayoutBinding ?: return
+        resetEmojiSearch()
         if (physicalKeyboardEnable.replayCache.isNotEmpty() && physicalKeyboardEnable.replayCache.first()) {
             disableKeyboardLayoutEditMode()
             stopAllOngoingKeyLongPresses()
@@ -19100,6 +19102,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
         launch {
             keyboardSymbolViewState.collectLatest { isSymbolKeyboardShow ->
+                if (!isSymbolKeyboardShow.isShown || isSymbolKeyboardShow.mode != SymbolMode.EMOJI) resetEmojiSearch()
                 Timber.d("keyboardSymbolViewState: $isSymbolKeyboardShow")
                 if (splitController != null) {
                     activeSplitSlot?.let(splitInputs::get)?.let { state ->

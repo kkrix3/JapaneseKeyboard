@@ -128,6 +128,20 @@ class IndependentEmojiSearchUiTest {
         view.release(); owner.registry.currentState = Lifecycle.State.DESTROYED
     }
 
+    @Test fun aHiddenSymbolSurfaceDropsItsQueryAndReleasesTheSearchTarget() {
+        val (view, owner) = view()
+        val targets = mutableListOf<Boolean>()
+        view.setOnEmojiSearchStateChanged { targets.add(it) }
+        view.openEmojiSearch(); view.appendEmojiSearchText("かんしゃ")
+        view.visibility = View.GONE
+        assertFalse(view.isEmojiSearchOpen)
+        assertEquals(listOf(true, false), targets)
+        view.visibility = View.VISIBLE
+        view.openEmojiSearch()
+        assertEquals(context.getString(com.kazumaproject.symbol_keyboard.R.string.emoji_search_hint), text(view))
+        view.release(); owner.registry.currentState = Lifecycle.State.DESTROYED
+    }
+
     @Test fun openingSearchCancelsAnAlreadyHeldEditorDeleteAndConsumesItsRelease() {
         val (view, owner) = view()
         var clicks = 0; var repeats = 0; var stops = 0

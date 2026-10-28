@@ -1352,6 +1352,11 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
         return Color.argb(a, r, g, b)
     }
 
+    override fun onVisibilityChanged(changedView: View, visibility: Int) {
+        super.onVisibilityChanged(changedView, visibility)
+        if (visibility != View.VISIBLE && isEmojiSearchOpen) closeEmojiSearch()
+    }
+
     override fun onDetachedFromWindow() {
         closeEmojiSearch()
         searchEngineLoad?.cancel()
