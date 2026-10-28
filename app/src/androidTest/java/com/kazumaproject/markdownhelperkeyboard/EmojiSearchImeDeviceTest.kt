@@ -11,6 +11,7 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import android.view.accessibility.AccessibilityNodeInfo
 import android.view.ViewGroup
 import android.view.inspector.WindowInspector
 import android.view.inputmethod.BaseInputConnection
@@ -63,19 +64,32 @@ class EmojiSearchImeDeviceTest {
     private fun touch(view: View, dx: Float = 0f, dy: Float = 0f, hold: Long = 25) {
         val label = main { (view as? TextView)?.text?.toString() ?: view.javaClass.simpleName }
         await("Visible and laid-out control: $label") { main { view.isShown && view.width > 0 && view.height > 0 } }
-        fun screenBounds() = main {
-            check(view.isShown && view.width > 0 && view.height > 0) { "Search control is not visible: ${view.javaClass.name}" }
-            val screen = IntArray(2).also(view::getLocationOnScreen)
-            Rect(screen[0], screen[1], screen[0] + view.width, screen[1] + view.height)
+        val expectedText = main {
+            (view as? TextView)?.text?.toString()
+                ?: collect(view).filterIsInstance<TextView>().firstOrNull { it.text.isNotEmpty() }?.text?.toString()
         }
-        // IME window coordinates can differ from display coordinates. Wait for its
-        // show/layout animation, then inject into the same space as MotionEvent.
-        var previous = screenBounds()
+        val expectedId = main { if (view.id == View.NO_ID) null else view.resources.getResourceName(view.id) }
+        fun screenBounds(): Rect? {
+            fun find(node: AccessibilityNodeInfo): Rect? {
+                if (node.isVisibleToUser && (if (expectedText != null) node.text?.toString() == expectedText
+                    else node.viewIdResourceName == expectedId)) {
+                    val bounds = Rect().also(node::getBoundsInScreen)
+                    if (!bounds.isEmpty) return bounds
+                }
+                for (i in 0 until node.childCount) node.getChild(i)?.let { find(it)?.let { bounds -> return bounds } }
+                return null
+            }
+            return automation.windows.asSequence().mapNotNull { it.root }.mapNotNull(::find).firstOrNull()
+        }
+        await("Visible accessibility control: $label") { screenBounds() != null }
+        // Accessibility supplies display bounds after IME window/surface transforms.
+        // View.getLocationOnScreen can lag those transforms on API 34.
+        var previous = requireNotNull(screenBounds())
         var stable = 0
         repeat(30) {
             if (stable < 3) {
                 SystemClock.sleep(40)
-                val next = screenBounds()
+                val next = requireNotNull(screenBounds())
                 stable = if (next == previous) stable + 1 else 0
                 previous = next
             }
@@ -109,7 +123,7 @@ class EmojiSearchImeDeviceTest {
         val oldIme = shell("settings get secure default_input_method").trim()
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
         var activity: FastInputHostActivity? = null
-        automation.serviceInfo = automation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS }
+        automation.serviceInfo = automation.serviceInfo.apply { flags = flags or AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS }
         try {
             check(prefs.edit().putString("keyboard_order_preference", "[\"SUMIRE\"]")
                 .putBoolean("save_last_used_keyboard", false).putBoolean("keyboard_floating_preference", false)
@@ -123,11 +137,15 @@ class EmojiSearchImeDeviceTest {
                 activity != null
             }
             await("Real IME attached") { allViews<CustomSymbolKeyboardView>().any { it.isAttachedToWindow } }
-            val view = allViews<CustomSymbolKeyboardView>().first { it.isAttachedToWindow }
+            val probeView = allViews<CustomSymbolKeyboardView>().first { it.isAttachedToWindow }
             val service = main {
-                var ctx: android.content.Context = view.context
+                var ctx: android.content.Context = probeView.context
                 while (ctx !is IMEService && ctx is ContextWrapper) ctx = ctx.baseContext
                 check(ctx is IMEService); ctx
+            }
+            val view = main {
+                collect(service.window.window!!.decorView).filterIsInstance<CustomSymbolKeyboardView>()
+                    .first { it.isAttachedToWindow }
             }
             main { field<MutableStateFlow<SymbolKeyboardState>>(service, "_keyboardSymbolViewState").value = SymbolKeyboardState(true) }
             val recycler = view.findViewById<RecyclerView>(com.kazumaproject.symbol_keyboard.R.id.symbol_candidate_recycler_view)
