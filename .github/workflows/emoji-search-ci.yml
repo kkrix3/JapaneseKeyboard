@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     env:
-      ZENZ_DEBUG_NATIVE_ABIS: x86_64
+      ZENZ_DEBUG_NATIVE_ABIS: arm64-v8a,x86_64
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -67,6 +67,18 @@ jobs:
             printf '%s\n' 'hw.keyboard=no' >> "$avd_config"
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash tools/emoji_search/device-test.sh
+      - name: Inspect the installed debug testbench APK
+        if: success() && steps.symbol.outcome == 'success' && steps.app.outcome == 'success'
+        run: python3 tools/emoji_search/inspect_debug_apk.py
+      - name: Upload installable debug testbench APK
+        if: success() && steps.symbol.outcome == 'success' && steps.app.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: emoji-search-debug-testbench
+          path: emoji-search-debug-artifact/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
       - name: Upload search verification
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

@@ -65,3 +65,11 @@ and the API 34 real IME probe. The existing Preview workflow is unchanged and
 continues to cover ordinary keyboard input, layouts, history infrastructure and
 Full Preview APK inspection. Signing remains restricted to protected `preview`;
 this feature does not change that trust boundary.
+
+On a successful API 34 run, `emoji-search-debug-testbench` contains the exact
+debug-signed APK tested by that run, with ARM64 and x86_64 native libraries and
+inspected search assets. Its separate `.preview.testbench` application ID allows
+review alongside normal Sumire. It uses an ephemeral CI debug certificate, not the
+Preview distribution certificate. `metadata.json` records the source SHA and APK
+SHA-256. The ordinary Full Preview unsigned APK remains available from the existing
+Preview workflow; its production signing restrictions are unchanged.
