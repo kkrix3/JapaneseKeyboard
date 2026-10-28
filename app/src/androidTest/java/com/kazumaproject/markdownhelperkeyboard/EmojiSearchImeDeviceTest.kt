@@ -61,8 +61,25 @@ class EmojiSearchImeDeviceTest {
         WindowInspector.getGlobalWindowViews().flatMap(::collect).filterIsInstance<T>()
     }
     private fun touch(view: View, dx: Float = 0f, dy: Float = 0f, hold: Long = 25) {
-        val bounds = main { Rect().also { view.getGlobalVisibleRect(it) } }
-        check(!bounds.isEmpty) { "Search control is not visible: ${view.javaClass.name}" }
+        fun screenBounds() = main {
+            check(view.isShown && view.width > 0 && view.height > 0) { "Search control is not visible: ${view.javaClass.name}" }
+            val screen = IntArray(2).also(view::getLocationOnScreen)
+            Rect(screen[0], screen[1], screen[0] + view.width, screen[1] + view.height)
+        }
+        // IME window coordinates can differ from display coordinates. Wait for its
+        // show/layout animation, then inject into the same space as MotionEvent.
+        var previous = screenBounds()
+        var stable = 0
+        repeat(30) {
+            if (stable < 3) {
+                SystemClock.sleep(40)
+                val next = screenBounds()
+                stable = if (next == previous) stable + 1 else 0
+                previous = next
+            }
+        }
+        check(stable >= 3) { "IME control bounds did not settle: $previous" }
+        val bounds = previous
         val start = SystemClock.uptimeMillis()
         for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE, MotionEvent.ACTION_UP)) {
             val moved = action != MotionEvent.ACTION_DOWN
@@ -120,7 +137,7 @@ class EmojiSearchImeDeviceTest {
             val pssBefore = Debug.getPss()
             val opened = System.nanoTime()
             touch(view.findViewById(com.kazumaproject.symbol_keyboard.R.id.emoji_search_query))
-            assertTrue(main { view.isEmojiSearchOpen })
+            await("Search toolbar OS tap opens private query") { main { view.isEmojiSearchOpen } }
             fun key(prefix: String) = allViews<TextView>().first { main { it.isShown && it.text.toString().startsWith(prefix) } }
             // OS-injected kana pad gestures: は + な + ひ + dakuten => はなび.
             touch(key("は ひ")); touch(key("な に"))
@@ -165,6 +182,9 @@ class EmojiSearchImeDeviceTest {
             automation.setRotation(UiAutomation.ROTATION_FREEZE_90)
             await("Rotation closes private search") { main { !view.isAttachedToWindow || !view.isEmojiSearchOpen } }
             assertTrue(allViews<CustomSymbolKeyboardView>().all { main { !it.isEmojiSearchOpen } })
+        } catch (failure: Throwable) {
+            android.util.Log.e("EmojiSearchProbe", "Real IME search probe failed", failure)
+            throw failure
         } finally {
             automation.setRotation(UiAutomation.ROTATION_UNFREEZE)
             main { activity?.finish() }

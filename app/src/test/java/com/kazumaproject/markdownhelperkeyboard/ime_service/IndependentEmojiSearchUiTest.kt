@@ -22,6 +22,7 @@ import com.kazumaproject.emoji.search.EmojiSearchEngine
 import com.kazumaproject.emoji.search.EmojiSearchResult
 import com.kazumaproject.symbol_keyboard.CustomSymbolKeyboardView
 import com.kazumaproject.symbol_keyboard.SymbolAdapter
+import com.kazumaproject.listeners.DeleteButtonSymbolViewLongClickListener
 import com.kazumaproject.listeners.DeleteButtonSymbolViewClickListener
 import com.kazumaproject.listeners.ReturnToTenKeyButtonClickListener
 import kotlinx.coroutines.CompletableDeferred
@@ -124,6 +125,32 @@ class IndependentEmojiSearchUiTest {
         view.findViewById<View>(com.kazumaproject.symbol_keyboard.R.id.return_jp_keyboard_button).performClick()
         assertFalse(view.isEmojiSearchOpen)
         assertEquals(0, editorDeletes); assertEquals(0, editorReturns)
+        view.release(); owner.registry.currentState = Lifecycle.State.DESTROYED
+    }
+
+    @Test fun openingSearchCancelsAnAlreadyHeldEditorDeleteAndConsumesItsRelease() {
+        val (view, owner) = view()
+        var clicks = 0; var repeats = 0; var stops = 0
+        view.setOnDeleteButtonSymbolViewClickListener(object : DeleteButtonSymbolViewClickListener { override fun onClick() { clicks++ } })
+        view.setOnDeleteButtonSymbolViewLongClickListener(object : DeleteButtonSymbolViewLongClickListener { override fun onLongClickListener() { repeats++ } })
+        view.setOnDeleteButtonFingerUpListener { stops++ }
+        val delete = view.findViewById<View>(com.kazumaproject.symbol_keyboard.R.id.symbol_keyboard_delete_key)
+        fun touch(action: Int) { MotionEvent.obtain(0, 1, action, 1f, 1f, 0).let { delete.dispatchTouchEvent(it); it.recycle() } }
+        // Search opens before the old long-press callback runs.
+        touch(MotionEvent.ACTION_DOWN); view.openEmojiSearch()
+        view.appendEmojiSearchText("あ")
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(700))
+        touch(MotionEvent.ACTION_UP)
+        assertEquals(0, repeats); assertEquals(0, clicks); assertEquals("あ", text(view))
+        view.closeEmojiSearch()
+        // Search opens after the existing editor-repeat callback has begun.
+        touch(MotionEvent.ACTION_DOWN)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(700))
+        assertEquals(1, repeats)
+        view.openEmojiSearch(); view.appendEmojiSearchText("い")
+        assertEquals(1, stops)
+        touch(MotionEvent.ACTION_UP)
+        assertEquals(0, clicks); assertEquals("い", text(view))
         view.release(); owner.registry.currentState = Lifecycle.State.DESTROYED
     }
 

@@ -145,6 +145,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
     private var searchEngineLoad: Deferred<EmojiSearchEngine>? = null
     private var searchGeneration = 0L
     private var searchStateListener: ((Boolean) -> Unit)? = null
+    private var cancelDeleteGestureForSearch: (() -> Unit)? = null
     var isEmojiSearchOpen: Boolean = false
         private set
 
@@ -152,6 +153,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
 
     fun openEmojiSearch() {
         if (currentMode != SymbolMode.EMOJI || isEmojiSearchOpen) return
+        cancelDeleteGestureForSearch?.invoke()
         isEmojiSearchOpen = true
         skinTonePopup?.dismiss()
         pagingJob?.cancel()
@@ -414,6 +416,8 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
             val handler = Handler(Looper.getMainLooper())
             var isLongPressed = false
             var searchGesture = false
+            var deleteGestureActive = false
+            var consumeDeleteRelease = false
 
             val longPressRunnable = Runnable {
                 isLongPressed = true
@@ -421,9 +425,22 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
                 else deleteLongListener?.onLongClickListener()
             }
 
+            // A second pointer can open search while Delete is already held.
+            // Cancel the old gesture and its editor repeat before changing input targets.
+            cancelDeleteGestureForSearch = {
+                if (deleteGestureActive) {
+                    handler.removeCallbacks(longPressRunnable)
+                    if (isLongPressed && !searchGesture) onDeleteFingerUpListener?.invoke()
+                    consumeDeleteRelease = true
+                    deleteGestureActive = false
+                }
+            }
+
             setOnTouchListener { _, event ->
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
+                        deleteGestureActive = true
+                        consumeDeleteRelease = false
                         isLongPressed = false
                         searchGesture = isEmojiSearchOpen
                         handler.postDelayed(
@@ -435,6 +452,11 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
 
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         handler.removeCallbacks(longPressRunnable)
+                        deleteGestureActive = false
+                        if (consumeDeleteRelease) {
+                            consumeDeleteRelease = false
+                            return@setOnTouchListener true
+                        }
                         if (searchGesture) {
                             if (event.action == MotionEvent.ACTION_UP && !isLongPressed) {
                                 searchInput.delete(); requestEmojiSearch()
