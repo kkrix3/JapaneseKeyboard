@@ -3,6 +3,7 @@ package com.kazumaproject.markdownhelperkeyboard
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.UiAutomation
 import android.content.ContextWrapper
+import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Debug
 import android.os.ParcelFileDescriptor
@@ -34,6 +35,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.io.File
+import java.io.FileOutputStream
 import java.util.concurrent.TimeUnit
 
 /** Real IME/editor/OS touch test; run only in an isolated preview.testbench emulator. */
@@ -61,6 +64,8 @@ class EmojiSearchImeDeviceTest {
         WindowInspector.getGlobalWindowViews().flatMap(::collect).filterIsInstance<T>()
     }
     private fun touch(view: View, dx: Float = 0f, dy: Float = 0f, hold: Long = 25) {
+        val label = main { (view as? TextView)?.text?.toString() ?: view.javaClass.simpleName }
+        await("Visible and laid-out control: $label") { main { view.isShown && view.width > 0 && view.height > 0 } }
         fun screenBounds() = main {
             check(view.isShown && view.width > 0 && view.height > 0) { "Search control is not visible: ${view.javaClass.name}" }
             val screen = IntArray(2).also(view::getLocationOnScreen)
@@ -90,6 +95,14 @@ class EmojiSearchImeDeviceTest {
             SystemClock.sleep(if (action == MotionEvent.ACTION_DOWN) hold else 20)
         }
     }
+    private fun saveProbeScreenshot(name: String) {
+        val bitmap = automation.takeScreenshot() ?: return
+        try {
+            val path = File(ins.targetContext.getExternalFilesDir(null), "$name.png")
+            FileOutputStream(path).use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        } finally { bitmap.recycle() }
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun <T> field(obj: Any, name: String): T = obj.javaClass.getDeclaredField(name).apply { isAccessible = true }.get(obj) as T
 
@@ -127,9 +140,17 @@ class EmojiSearchImeDeviceTest {
             val editor = activity!!.editText
             // Seed a composing span after entering the existing symbol pane, to isolate search behavior.
             main {
-                editor.setText("前後"); editor.setSelection(1)
-                editor.onCreateInputConnection(EditorInfo())!!.setComposingText("未確定", 1)
+                // TextView.setText invalidates/restarts the served IME on Android 14.
+                // Seed through the ordinary connection so setup cannot restart search mid-tap.
+                editor.onCreateInputConnection(EditorInfo())!!.apply {
+                    beginBatchEdit()
+                    commitText("前後", 1)
+                    setSelection(1, 1)
+                    setComposingText("未確定", 1)
+                    endBatchEdit()
+                }
             }
+            android.util.Log.i("EmojiSearchProbe", "stage=editor-composition-seeded")
             data class Snapshot(val text: String, val start: Int, val end: Int, val compStart: Int, val compEnd: Int)
             fun snapshot() = main { Snapshot(editor.text.toString(), editor.selectionStart, editor.selectionEnd,
                 BaseInputConnection.getComposingSpanStart(editor.text), BaseInputConnection.getComposingSpanEnd(editor.text)) }
@@ -138,12 +159,14 @@ class EmojiSearchImeDeviceTest {
             val opened = System.nanoTime()
             touch(view.findViewById(com.kazumaproject.symbol_keyboard.R.id.emoji_search_query))
             await("Search toolbar OS tap opens private query") { main { view.isEmojiSearchOpen } }
+            android.util.Log.i("EmojiSearchProbe", "stage=search-open")
             fun key(prefix: String) = allViews<TextView>().first { main { it.isShown && it.text.toString().startsWith(prefix) } }
             // OS-injected kana pad gestures: は + な + ひ + dakuten => はなび.
             touch(key("は ひ")); touch(key("な に"))
             touch(key("は ひ"), dx = -24 * context.resources.displayMetrics.density)
             touch(key(context.getString(com.kazumaproject.symbol_keyboard.R.string.emoji_search_modify)))
             await("Fireworks result for kana query") { main { adapter.snapshot().items.contains("🎆") } }
+            android.util.Log.i("EmojiSearchProbe", "stage=kana-results")
             val firstResultMs = (System.nanoTime() - opened) / 1e6
             assertEquals(before, snapshot())
             assertEquals("はなび", main { view.findViewById<TextView>(com.kazumaproject.symbol_keyboard.R.id.emoji_search_query).text.toString() })
@@ -159,7 +182,17 @@ class EmojiSearchImeDeviceTest {
             assertEquals(before, snapshot())
 
             // A selected skin-tone variant follows the ordinary emoji commit/history path.
-            main { editor.onCreateInputConnection(EditorInfo())!!.finishComposingText(); editor.setText("前後"); editor.setSelection(1) }
+            android.util.Log.i("EmojiSearchProbe", "stage=private-delete-back-passed")
+            main {
+                editor.onCreateInputConnection(EditorInfo())!!.apply {
+                    beginBatchEdit()
+                    finishComposingText()
+                    setSelection(0, editor.length())
+                    commitText("前後", 1)
+                    setSelection(1, 1)
+                    endBatchEdit()
+                }
+            }
             touch(view.findViewById(com.kazumaproject.symbol_keyboard.R.id.emoji_search_query))
             main { view.appendEmojiSearchText("かんしゃ"); view.handleEmojiSearchKeyDown(KeyEvent.KEYCODE_ENTER, null) }
             await("Gratitude results") { main { adapter.snapshot().items.contains("🙏") } }
@@ -173,17 +206,21 @@ class EmojiSearchImeDeviceTest {
             await("Selected emoji persisted in history") { runBlocking { history.getAll().any { it.symbol == "🙏🏽" } } }
             assertFalse(runBlocking { history.getAll().any { it.symbol.contains("かんしゃ") || it.symbol.contains("はなび") } })
 
+            android.util.Log.i("EmojiSearchProbe", "stage=emoji-skin-history-passed")
             val engine = runBlocking { field<Deferred<EmojiSearchEngine>>(view, "searchEngineLoad").await() }
             val queries = listOf("お祝い", "かんしゃ", "きまずい", "はなび", "電車で帰る", "unknown-token")
             repeat(4) { queries.forEach { engine.search(it, 100) } }
             val times = (0 until 40).flatMap { queries.map { q -> val t = System.nanoTime(); engine.search(q, 100); (System.nanoTime() - t) / 1e6 } }.sorted()
             android.util.Log.i("EmojiSearchProbe", "API=${android.os.Build.VERSION.SDK_INT} n=${times.size} engine_p50_ms=${times[times.size/2]} engine_p95_ms=${times[(times.size*.95).toInt()]} first_interactive_sequence_ms=$firstResultMs pss_before_kb=$pssBefore pss_after_kb=${Debug.getPss()}")
+            saveProbeScreenshot("emoji-search-results")
             // Configuration change must dispose the query and its Back registration.
             automation.setRotation(UiAutomation.ROTATION_FREEZE_90)
             await("Rotation closes private search") { main { !view.isAttachedToWindow || !view.isEmojiSearchOpen } }
             assertTrue(allViews<CustomSymbolKeyboardView>().all { main { !it.isEmojiSearchOpen } })
+            android.util.Log.i("EmojiSearchProbe", "stage=rotation-passed")
         } catch (failure: Throwable) {
             android.util.Log.e("EmojiSearchProbe", "Real IME search probe failed", failure)
+            runCatching { saveProbeScreenshot("emoji-search-failure") }
             throw failure
         } finally {
             automation.setRotation(UiAutomation.ROTATION_UNFREEZE)
