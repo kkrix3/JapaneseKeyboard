@@ -160,11 +160,14 @@ class EmojiSearchImeDeviceTest {
             touch(view.findViewById(com.kazumaproject.symbol_keyboard.R.id.emoji_search_query))
             await("Search toolbar OS tap opens private query") { main { view.isEmojiSearchOpen } }
             android.util.Log.i("EmojiSearchProbe", "stage=search-open")
-            fun key(prefix: String) = allViews<TextView>().first { main { it.isShown && it.text.toString().startsWith(prefix) } }
+            fun key(prefix: String) = main {
+                collect(view.findViewById(com.kazumaproject.symbol_keyboard.R.id.emoji_search_pad))
+                    .filterIsInstance<TextView>().first { it.isShown && it.text.toString().startsWith(prefix) }
+            }
             // OS-injected kana pad gestures: は + な + ひ + dakuten => はなび.
-            touch(key("は ひ")); touch(key("な に"))
-            touch(key("は ひ"), dx = -24 * context.resources.displayMetrics.density)
-            touch(key(context.getString(com.kazumaproject.symbol_keyboard.R.string.emoji_search_modify)))
+            touch(key("は")); touch(key("な"))
+            touch(key("は"), dx = -24 * context.resources.displayMetrics.density)
+            touch(key("゛"))
             await("Fireworks result for kana query") { main { adapter.snapshot().items.contains("🎆") } }
             android.util.Log.i("EmojiSearchProbe", "stage=kana-results")
             val firstResultMs = (System.nanoTime() - opened) / 1e6
