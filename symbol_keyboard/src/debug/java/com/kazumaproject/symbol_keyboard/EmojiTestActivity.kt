@@ -14,6 +14,12 @@ import com.kazumaproject.listeners.SymbolRecyclerViewItemClickListener
 class EmojiTestActivity : AppCompatActivity() {
     lateinit var keyboard: CustomSymbolKeyboardView
     var lastClicked: ClickedSymbol? = null
+    companion object { @Volatile var current: EmojiTestActivity? = null }
+    override fun onResume() { super.onResume(); current = this }
+    override fun onDestroy() {
+        if (current === this) current = null
+        super.onDestroy()
+    }
     override fun onCreate(state: Bundle?) {
         super.onCreate(state)
         keyboard = CustomSymbolKeyboardView(this).apply {

@@ -71,7 +71,9 @@ Updating the font requires updating the checksum and rerunning native tests.
 restoration, backup, unknown/wrongly typed values, and settings choices/defaults.
 
 `GoogleEmojiRenderingDeviceTest` runs on Android 24 and Android 14/API 34. It checks
-colored output for ten simple/VS16/ZWJ/tone/flag/keycap/tag sequences. On API 34,
+visible output for ten simple/VS16/ZWJ/tone/flag/keycap/tag sequences, and colored
+output for the nine whose upstream glyphs are colored (the family silhouette
+is intentionally grayscale in Noto 2.057). On API 34,
 TextRunShaper must return one glyph, and the actual shaped glyph font buffer must
 hash to the bundled font, distinguishing it from OEM/system fallback. Native UI
 tests cover live preference updates, activity recreation with saved Google mode,
