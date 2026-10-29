@@ -57,7 +57,8 @@ to package a checksum mismatch. No font binary is sent through the GitHub connec
 - SHA-256: `15671215ab769fdc7162a045d56fd7d7e477c51b04e6b3c761d914d8fdd6cc44`
 - Font size: 10,730,124 bytes (10.23 MiB), approximately 9.50 MiB compressed.
   Full Preview APK inspection reports its actual stored contribution.
-- Copyright 2013 Google LLC, SIL Open Font License 1.1. Full upstream font license
+- Copyright 2013 Google LLC (repository), Copyright 2022 Google Inc. (font name
+  table), SIL Open Font License 1.1. Full upstream font license
   and copyright are packaged in `assets/licenses/noto-color-emoji.html`, accessible
   from Settings → Open source licenses → Noto Color Emoji (Google). The font remains
   OFL; no separate font sale or modification is involved.

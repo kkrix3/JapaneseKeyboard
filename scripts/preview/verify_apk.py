@@ -61,7 +61,8 @@ def main():
                        hashlib.sha256(archive.read(n)).hexdigest() == font_hash]
         assert len(emoji_fonts) == 1, 'Missing or changed bundled Noto Color Emoji'
         notice = archive.read('assets/licenses/noto-color-emoji.html').decode('utf-8')
-        assert 'Copyright 2013 Google LLC' in notice and 'SIL OPEN FONT LICENSE Version 1.1' in notice
+        assert 'Copyright 2013 Google LLC' in notice and 'Copyright 2022 Google Inc.' in notice
+        assert 'SIL OPEN FONT LICENSE Version 1.1' in notice
         font_entry = archive.getinfo(emoji_fonts[0])
         print(f'Noto Color Emoji: {font_entry.file_size} bytes, {font_entry.compress_size} APK bytes, SHA-256={font_hash}')
 
