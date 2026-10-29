@@ -2,6 +2,8 @@ package com.kazumaproject.symbol_keyboard
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.SharedPreferences
+import androidx.preference.PreferenceManager
 import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.graphics.Color
@@ -105,6 +107,34 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
     private var clipBoardItems: List<ClipboardItem> = emptyList()
     private var currentMode: SymbolMode = SymbolMode.EMOJI
     private var keyboardFontSnapshot = KeyboardFontApplicator.processSnapshot
+    private var emojiRenderingStyle = EmojiRenderingStyle.DEVICE
+    private val emojiPreferences by lazy {
+        PreferenceManager.getDefaultSharedPreferences(context.applicationContext)
+    }
+    private val emojiPreferenceListener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == null || key == EmojiRenderingStyle.PREFERENCE_KEY) {
+            post { if (isAttachedToWindow) setEmojiRenderingStyle(EmojiRenderingStyle.read(emojiPreferences)) }
+        }
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        emojiPreferences.registerOnSharedPreferenceChangeListener(emojiPreferenceListener)
+        setEmojiRenderingStyle(EmojiRenderingStyle.read(emojiPreferences))
+    }
+
+    override fun onDetachedFromWindow() {
+        emojiPreferences.unregisterOnSharedPreferenceChangeListener(emojiPreferenceListener)
+        skinTonePopup?.dismiss()
+        super.onDetachedFromWindow()
+    }
+
+    fun setEmojiRenderingStyle(style: EmojiRenderingStyle) {
+        if (emojiRenderingStyle == style) return
+        emojiRenderingStyle = style
+        skinTonePopup?.dismiss()
+        symbolAdapter.setEmojiTypeface(if (style == EmojiRenderingStyle.GOOGLE) GoogleEmojiFont.get(context) else null)
+    }
 
     override fun setKeyboardFont(snapshot: KeyboardFontSnapshot) {
         KeyboardFontApplicator.track(this)
@@ -1033,6 +1063,7 @@ class CustomSymbolKeyboardView @JvmOverloads constructor(
         variants.forEach { variant ->
             content.addView(
                 TextView(context).apply {
+                    if (emojiRenderingStyle == EmojiRenderingStyle.GOOGLE) typeface = GoogleEmojiFont.get(context)
                     text = variant
                     textSize =
                         if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) 30f else 26f

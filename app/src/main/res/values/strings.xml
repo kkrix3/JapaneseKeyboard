@@ -1948,4 +1948,8 @@ ABC abc 0123456789　ＡＢＣ　１２３４５
     <string name="input_character_pop_distance">Pop position distance (dp; 0 = key center)</string>
     <string name="input_character_pop_scale_easing">Pop scale interpolation</string>
     <string name="input_character_pop_fade_easing">Pop fade interpolation</string>
+    <string name="emoji_rendering_style_title">Emoji appearance</string>
+    <string name="emoji_rendering_style_summary">Changes emoji in Sumire only. Other apps keep their own appearance.</string>
+    <string name="emoji_rendering_style_device">Device default</string>
+    <string name="emoji_rendering_style_google">Google emoji</string>
 </resources>

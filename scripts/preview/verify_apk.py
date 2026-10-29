@@ -56,6 +56,16 @@ def main():
         assert not any(re.match(r'META-INF/[^/]+\.(RSA|DSA|EC|SF)$', n) for n in names)
         assert any(n.endswith('system.compact.kdict') for n in names), 'Missing compiled dictionary'
         assert any('ggml-model' in n and n.endswith('.gguf') for n in names), 'Missing bundled Zenz model'
+        font_hash = '15671215ab769fdc7162a045d56fd7d7e477c51b04e6b3c761d914d8fdd6cc44'
+        emoji_fonts = [n for n in names if n.endswith('.ttf') and
+                       hashlib.sha256(archive.read(n)).hexdigest() == font_hash]
+        assert len(emoji_fonts) == 1, 'Missing or changed bundled Noto Color Emoji'
+        notice = archive.read('assets/licenses/noto-color-emoji.html').decode('utf-8')
+        assert 'Copyright 2013 Google LLC' in notice and 'Copyright 2022 Google Inc.' in notice
+        assert 'SIL OPEN FONT LICENSE Version 1.1' in notice
+        font_entry = archive.getinfo(emoji_fonts[0])
+        print(f'Noto Color Emoji: {font_entry.file_size} bytes, {font_entry.compress_size} APK bytes, SHA-256={font_hash}')
+
     args.output_dir.mkdir(parents=True, exist_ok=False)
     target = args.output_dir / 'sumire-preview-full-unsigned.apk'
     shutil.copyfile(args.apk, target)
