@@ -100,6 +100,8 @@ jobs:
           bash ./gradlew :app:testFullStandardDebugUnitTest \
             --tests '*Independent*Test' \
             --tests '*SmallTsu*' \
+            --tests '*KeyboardFontApplicatorTest' \
+            --tests '*BundledEmojiCategoryTest' \
             --tests '*VibrationTimingPolicyTest' \
             --tests '*VibrationShortcutTest' \
             --tests '*ShortcutActiveStateResolverTest' \
@@ -237,9 +239,60 @@ jobs:
             app/build/reports/androidTests/connected/
           retention-days: 14
 
+  emoji-rendering:
+    name: Emoji rendering API ${{ matrix.api }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [24, 34]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android dependencies
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-37.0" "build-tools;36.0.0"'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Verify bundled emoji font and UI
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          cores: 2
+          ram-size: 2048M
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          script: bash ./gradlew :symbol_keyboard:connectedDebugAndroidTest --no-daemon --console=plain --max-workers=2
+      - name: Collect render comparisons
+        if: always()
+        run: |
+          mkdir -p emoji-rendering-artifacts
+          adb pull /sdcard/Android/data/com.kazumaproject.symbol_keyboard.test/files/emoji-rendering emoji-rendering-artifacts/ || true
+      - name: Upload emoji reports and render comparisons
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: sumire-emoji-api-${{ matrix.api }}
+          path: |
+            symbol_keyboard/build/outputs/androidTest-results/
+            symbol_keyboard/build/reports/androidTests/
+            emoji-rendering-artifacts/
+          retention-days: 14
+
   sign:
     name: Sign trusted Full Preview
-    needs: [verify, device-input]
+    needs: [verify, device-input, emoji-rendering]
     # Normal push/PR CI never accesses signing secrets.
     if: >-
       github.event_name == 'workflow_dispatch' &&

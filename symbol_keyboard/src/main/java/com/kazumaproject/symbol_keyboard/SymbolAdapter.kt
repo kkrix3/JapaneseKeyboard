@@ -26,16 +26,19 @@ class SymbolAdapter :
     private var keyboardFontSnapshot = KeyboardFontApplicator.processSnapshot
     private var useKeyboardFont = false
     private var emojiTypeface: Typeface? = null
+    private var appearanceRevision = 0L
 
     fun setEmojiTypeface(typeface: Typeface?) {
         if (emojiTypeface === typeface) return
         emojiTypeface = typeface
+        appearanceRevision++
         notifyDataSetChanged()
     }
 
     fun setKeyboardFont(snapshot: KeyboardFontSnapshot, useForCurrentMode: Boolean) {
         keyboardFontSnapshot = snapshot
         useKeyboardFont = useForCurrentMode
+        appearanceRevision++
         notifyDataSetChanged()
     }
 
@@ -143,8 +146,10 @@ class SymbolAdapter :
             if (!useKeyboardFont && emojiTypeface != null) false else holder.originalEmojiCompatEnabled
         KeyboardFontApplicator.apply(
             holder.symbolTextView,
-            if (useKeyboardFont) keyboardFontSnapshot
-            else keyboardFontSnapshot.copy(typeface = emojiTypeface)
+            keyboardFontSnapshot.copy(
+                typeface = if (useKeyboardFont) keyboardFontSnapshot.typeface else emojiTypeface,
+                revision = appearanceRevision,
+            )
         )
         holder.symbolTextView.text = symbol ?: ""
         if (symbol != null) {
