@@ -85,7 +85,7 @@ class GoogleEmojiRenderingDeviceTest {
 
     @RequiresApi(31) private fun assertBundledSingleGlyph(text: String, paint: Paint) {
         val shaped = TextRunShaper.shapeTextRun(text, 0, text.length, 0, text.length, 0f, 0f, false, paint)
-        assertEquals("Sequence split: $text", 1, shaped.glyphCount)
+        assertEquals("Sequence split: $text", 1, shaped.glyphCount())
         val bytes = shaped.getFont(0).buffer.duplicate().apply { rewind() }
         val hash = MessageDigest.getInstance("SHA-256").apply { update(bytes) }.digest()
             .joinToString("") { "%02x".format(it.toInt() and 255) }

@@ -274,11 +274,6 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           script: bash scripts/preview/emoji_device_tests.sh
-      - name: Collect render comparisons
-        if: always()
-        run: |
-          mkdir -p emoji-rendering-artifacts
-          adb pull /sdcard/Android/data/com.kazumaproject.symbol_keyboard.test/files/emoji-rendering emoji-rendering-artifacts/ || true
       - name: Upload emoji reports and render comparisons
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
