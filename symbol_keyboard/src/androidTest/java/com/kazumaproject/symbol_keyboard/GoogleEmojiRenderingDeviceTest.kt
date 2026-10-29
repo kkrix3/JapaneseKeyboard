@@ -39,8 +39,30 @@ class GoogleEmojiRenderingDeviceTest {
         "1\uFE0F\u20E3", "🏳️‍🌈", "🏴\uDB40\uDC67\uDB40\uDC62\uDB40\uDC65\uDB40\uDC6E\uDB40\uDC67\uDB40\uDC7F")
     private val output get() = File(context.getExternalFilesDir(null), "emoji-rendering").apply { mkdirs() }
 
-    @Before fun setup() { prefs.edit().remove(EmojiRenderingStyle.PREFERENCE_KEY).commit() }
-    @After fun cleanup() { prefs.edit().remove(EmojiRenderingStyle.PREFERENCE_KEY).commit() }
+    private val restartPhase get() = InstrumentationRegistry.getArguments().getString("emojiRestartPhase")
+    @Before fun setup() {
+        if (restartPhase == null) prefs.edit().remove(EmojiRenderingStyle.PREFERENCE_KEY).commit()
+    }
+    @After fun cleanup() {
+        if (restartPhase != "save") prefs.edit().remove(EmojiRenderingStyle.PREFERENCE_KEY)
+            .remove("emoji_restart_test_pid").commit()
+    }
+
+    @Test fun persistedGoogleSelectionSurvivesNewProcess() {
+        if (restartPhase == "save") {
+            setStyle(EmojiRenderingStyle.GOOGLE)
+            assertTrue(prefs.edit().putInt("emoji_restart_test_pid", android.os.Process.myPid()).commit())
+            return
+        }
+        if (restartPhase == "verify") {
+            assertNotEquals("Instrumentation must use a fresh process", android.os.Process.myPid(),
+                prefs.getInt("emoji_restart_test_pid", -1))
+            assertEquals(EmojiRenderingStyle.GOOGLE, EmojiRenderingStyle.read(prefs))
+        } else setStyle(EmojiRenderingStyle.GOOGLE)
+        ActivityScenario.launch(EmojiTestActivity::class.java).use { scenario ->
+            awaitFont(scenario, "👩🏽‍💻", Typeface.create(GoogleEmojiFont.get(context), Typeface.BOLD))
+        }
+    }
 
     @Test fun bundledColorGlyphsAndSequencesRenderWithoutOemFallback() {
         val font = GoogleEmojiFont.get(context)
@@ -88,6 +110,7 @@ class GoogleEmojiRenderingDeviceTest {
             }
             awaitCell(scenario, "👍")
             scenario.onActivity { activity ->
+                assertFalse((cell(activity) as com.google.android.material.textview.MaterialTextView).isEmojiCompatEnabled)
                 if (Build.VERSION.SDK_INT >= 31) assertBundledSingleGlyph("👍", cell(activity).paint)
                 (cell(activity).parent as View).performLongClick()
                 val popup = popup(activity.keyboard)
@@ -171,8 +194,13 @@ class GoogleEmojiRenderingDeviceTest {
         }
         return result
     }
-    private fun draw(view: View): Bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
-        .also { view.draw(Canvas(it)) }
+    private fun draw(view: View): Bitmap {
+        // A just-added PopupWindow has been measured but may not have had its first traversal.
+        val width = view.width.takeIf { it > 0 } ?: view.measuredWidth
+        val height = view.height.takeIf { it > 0 } ?: view.measuredHeight
+        if (view.width == 0 || view.height == 0) view.layout(0, 0, width, height)
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { view.draw(Canvas(it)) }
+    }
     private fun save(bitmap: Bitmap, name: String) {
         File(output, name).outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     }

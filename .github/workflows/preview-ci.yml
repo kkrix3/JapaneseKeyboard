@@ -273,7 +273,7 @@ jobs:
           ram-size: 2048M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash ./gradlew :symbol_keyboard:connectedDebugAndroidTest --no-daemon --console=plain --max-workers=2
+          script: bash scripts/preview/emoji_device_tests.sh
       - name: Collect render comparisons
         if: always()
         run: |

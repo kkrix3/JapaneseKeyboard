@@ -78,6 +78,9 @@ tests cover live preference updates, activity recreation with saved Google mode,
 history/category strings, all six skin-tone options, selected strings, standard
 restoration, popup dismissal, and custom-font/emoji precedence after mode recycling.
 The CI artifacts include device/Google render pairs and history/popup bitmaps.
+A separate save/force-stop/verify instrumentation sequence checks that Google
+selection survives a fresh Android process (including a distinct PID) and is used
+by a newly attached keyboard.
 
 The existing Full Preview CI retains app/core/keyboard regression tests, API 35
 real IME input, release APK generation and package/native/model/alignment checks.
@@ -89,7 +92,7 @@ are recorded in [Draft PR #13](https://github.com/kkrix3/JapaneseKeyboard/pull/1
 No docomo physical device is available. Confirm on Android 14 docomo hardware that
 Google selection actually changes docomo designs, remains colored and fits cells
 and popups. Check light/dark themes, landscape, fast scrolling, floating/split mode,
-process kill/restart and switching back. Confirm kana/kanji candidates and custom
+switching back, and full-IME process restart on the physical device. Confirm kana/kanji candidates and custom
 fonts in kaomoji/symbol modes remain unaffected. Commit family/tone/flag sequences
 into different apps and confirm the same Unicode; each destination controls its
 own glyph display.
