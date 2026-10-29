@@ -423,4 +423,12 @@
         <item>legacy</item>
         <item>stable</item>
     </string-array>
+    <string-array name="emoji_rendering_style_entries">
+        <item>@string/emoji_rendering_style_device</item>
+        <item>@string/emoji_rendering_style_google</item>
+    </string-array>
+    <string-array name="emoji_rendering_style_values">
+        <item>device</item>
+        <item>google</item>
+    </string-array>
 </resources>

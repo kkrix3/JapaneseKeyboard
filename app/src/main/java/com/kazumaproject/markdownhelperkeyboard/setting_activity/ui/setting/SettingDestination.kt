@@ -535,6 +535,7 @@ object SettingDestinations {
         "shortcut_toolbar_size_setting_fragment_preference",
         "symbol_mode_preference",
         "default_emoji_skin_tone_preference",
+        "emoji_rendering_style_preference",
         "system_user_dictionary_builder_preference",
         "external_dictionary_settings_preference",
         "dictionary_browser_preference",

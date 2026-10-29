@@ -888,6 +888,16 @@
             android:title="@string/symbol_mode_title" />
 
         <ListPreference
+            android:defaultValue="device"
+            android:dialogTitle="@string/emoji_rendering_style_title"
+            android:entries="@array/emoji_rendering_style_entries"
+            android:entryValues="@array/emoji_rendering_style_values"
+            android:key="emoji_rendering_style_preference"
+            android:summary="@string/emoji_rendering_style_summary"
+            android:title="@string/emoji_rendering_style_title"
+            app:useSimpleSummaryProvider="true" />
+
+        <ListPreference
             android:defaultValue="default"
             android:dialogTitle="@string/default_emoji_skin_tone_dialog_title"
             android:entries="@array/default_emoji_skin_tone_entries"
