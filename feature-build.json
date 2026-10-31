@@ -1,0 +1,31 @@
+{
+  "baseSha": "e3cc93537c1c0912cb451b39133c270d39a10b9b",
+  "featureRef": "feature/google-emoji-rendering",
+  "featureSha": "948f2dbce85081b8ecbe3b08813af3c9c2ff8b42",
+  "infrastructureRef": "build/feature-apk-v1.7.133",
+  "infrastructureSha": "7534cd734cdb5af42be53c5ddde1b85fb787e109",
+  "appTestFilters": [
+    "*Independent*Test",
+    "*SmallTsu*",
+    "*KeyboardFontApplicatorTest",
+    "*BundledEmojiCategoryTest",
+    "*VibrationTimingPolicyTest",
+    "*VibrationShortcutTest",
+    "*ShortcutActiveStateResolverTest",
+    "*ShortcutRepositoryVibrationTest",
+    "*ShortcutAdapterThemeColorTest",
+    "*SuggestionAdapterShortcutEntryClickTest",
+    "*ShortcutToolbarPresentationPolicyTest",
+    "*CustomHapticSettingsEntryPointTest",
+    "*CustomHapticBackupCompatibilityTest",
+    "*KeyboardLayout*Test",
+    "*Backup*Test",
+    "*Cursor*Test",
+    "*FlickPreview*Test",
+    "*MigrationTest",
+    "*Setting*Test"
+  ],
+  "deviceTestClasses": [
+    "com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest"
+  ]
+}
