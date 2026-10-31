@@ -2,7 +2,8 @@
 
 ## 固定したソース
 
-`verify/google-emoji-rendering` は次の2コミットの通常mergeと、この配布設定・説明だけで構成する。
+`verify/google-emoji-rendering` は次の2コミットの通常merge、配布設定・説明、
+共通実IMEテストのテストアプリID判定修正で構成する。
 既存Previewの内容にGoogle絵文字表示切替を追加し、別作業の絵文字検索は含めない。
 
 | 用途 | ref | SHA |
@@ -15,6 +16,15 @@
 app/build.gradle・app/src/featureは配布基盤と同一で、CIが差分なしを検証する。
 検証コミットSHA、APKハッシュ、versionCodeは各runのartifactに記録される。
 元の機能ブランチ、Draft PR #13、preview/devは変更しない。
+
+### Feature用実IMEテストのID判定修正
+
+初回push run 41221013419と手動run 41246583649は、単体テスト・APK生成・検査が成功し、
+API 35実IMEテスト3件のうち2件が開始直後に失敗した。該当の2メソッドは
+`.preview.testbench` だけを許可しており、Feature CIの `.feature.testbench` を拒否していた。
+成功した残り1メソッドと同じく、両方の隔離テストアプリを許可する判定へ統一した。
+通常の配布アプリを拒否する条件、各テストの入力・描画・振動のassertionは維持する。
+製品コードと署名基盤は変更していない。修正後のAndroid検証結果は最新CI runで確認する。
 
 ## 既存署名経路
 
