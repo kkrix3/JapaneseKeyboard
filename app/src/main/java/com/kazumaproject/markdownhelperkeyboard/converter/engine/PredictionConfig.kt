@@ -41,9 +41,12 @@ data class PredictionConfig(
             MAX_LOOKAHEAD_CHARACTER_COUNT,
         )
 
+    fun canPredictJapanese(inputLength: Int): Boolean =
+        japanesePredictionEnabled &&
+            inputLength in normalizedMinimumInputLength..MAX_PREDICTION_INPUT_LENGTH
+
     fun acceptsJapaneseReading(inputLength: Int, readingLength: Int): Boolean {
-        if (!japanesePredictionEnabled) return false
-        if (inputLength !in normalizedMinimumInputLength..MAX_PREDICTION_INPUT_LENGTH) return false
+        if (!canPredictJapanese(inputLength)) return false
         if (readingLength <= inputLength) return false
         return readingLength <= inputLength + normalizedLookaheadCharacterCount
     }

@@ -1,0 +1,122 @@
+{
+  "こう/baseline": {
+    "median_us": 2128.279,
+    "p95_us": 2657.618,
+    "cpu_us": 2263.382304,
+    "allocated_bytes": 569536.0
+  },
+  "こう/feature": {
+    "median_us": 0.49,
+    "p95_us": 0.561,
+    "cpu_us": 0.776756,
+    "allocated_bytes": 16.0
+  },
+  "しょ/baseline": {
+    "median_us": 1773.426,
+    "p95_us": 2426.67,
+    "cpu_us": 1933.610148,
+    "allocated_bytes": 529680.0
+  },
+  "しょ/feature": {
+    "median_us": 0.15,
+    "p95_us": 0.161,
+    "cpu_us": 0.250892,
+    "allocated_bytes": 16.0
+  },
+  "きょう/baseline": {
+    "median_us": 2251.45,
+    "p95_us": 2831.776,
+    "cpu_us": 2349.47242,
+    "allocated_bytes": 1332176.0
+  },
+  "きょう/feature": {
+    "median_us": 1489.016,
+    "p95_us": 1801.808,
+    "cpu_us": 1536.533312,
+    "allocated_bytes": 1148568.0
+  },
+  "しょう/baseline": {
+    "median_us": 3648.791,
+    "p95_us": 4463.762,
+    "cpu_us": 3759.344316,
+    "allocated_bytes": 2444752.0
+  },
+  "しょう/feature": {
+    "median_us": 2585.083,
+    "p95_us": 3070.339,
+    "cpu_us": 2637.810632,
+    "allocated_bytes": 2151008.0
+  },
+  "にほん/baseline": {
+    "median_us": 981.298,
+    "p95_us": 1351.293,
+    "cpu_us": 1030.90572,
+    "allocated_bytes": 299088.0
+  },
+  "にほん/feature": {
+    "median_us": 396.084,
+    "p95_us": 592.774,
+    "cpu_us": 424.75653600000004,
+    "allocated_bytes": 202784.0
+  },
+  "こうつう/baseline": {
+    "median_us": 52.878,
+    "p95_us": 113.017,
+    "cpu_us": 61.116612,
+    "allocated_bytes": 22760.0
+  },
+  "こうつう/feature": {
+    "median_us": 44.526,
+    "p95_us": 92.537,
+    "cpu_us": 54.147492,
+    "allocated_bytes": 18280.0
+  },
+  "ちゅうしゃじょう/baseline": {
+    "median_us": 24.066,
+    "p95_us": 35.943,
+    "cpu_us": 27.242176,
+    "allocated_bytes": 7664.0
+  },
+  "ちゅうしゃじょう/feature": {
+    "median_us": 23.645,
+    "p95_us": 36.363,
+    "cpu_us": 26.819308,
+    "allocated_bytes": 7088.0
+  },
+  "ぜんぜんないよみ/baseline": {
+    "median_us": 3.765,
+    "p95_us": 5.919,
+    "cpu_us": 5.94688,
+    "allocated_bytes": 272.0
+  },
+  "ぜんぜんないよみ/feature": {
+    "median_us": 3.875,
+    "p95_us": 5.078,
+    "cpu_us": 4.54936,
+    "allocated_bytes": 216.0
+  },
+  "workload/baseline": {
+    "median_us": 63871.673,
+    "p95_us": 75896.311,
+    "cpu_us": 63653.314666666665,
+    "allocated_bytes": 23976376.0
+  },
+  "workload/feature": {
+    "median_us": 24709.338,
+    "p95_us": 28396.449,
+    "cpu_us": 25350.712933333336,
+    "allocated_bytes": 14532914.133333333
+  },
+  "workload_off/baseline": {
+    "median_us": 40199.702,
+    "p95_us": 47515.222,
+    "cpu_us": 40829.0002,
+    "allocated_bytes": 10016768.0
+  },
+  "workload_off/feature": {
+    "median_us": 30.945,
+    "p95_us": 34.411,
+    "cpu_us": 34.9593,
+    "allocated_bytes": 5648.0
+  }
+}
