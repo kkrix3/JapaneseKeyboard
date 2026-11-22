@@ -2869,6 +2869,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private fun startSplitKeyboard() {
         if (splitController != null || splitLoadingJob?.isActive == true) return
         val main = mainLayoutBinding ?: return
+        resetEmojiSearch()
         disableKeyboardLayoutEditMode()
         stopAllOngoingKeyLongPresses()
         floatingKeyboardView?.dismiss()
@@ -3971,6 +3972,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onStartInput(attribute: EditorInfo?, restarting: Boolean) {
+        resetEmojiSearch()
         invalidateSmallTsu()
         smallTsuSelection.reset(attribute?.initialSelStart ?: -1, attribute?.initialSelEnd ?: -1)
         floatingCursor?.stop()
@@ -6692,6 +6694,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onFinishInput() {
+        resetEmojiSearch()
         invalidateSmallTsu()
         clearGemmaFloating()
         floatingCursor?.stop()
@@ -6715,6 +6718,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
+        resetEmojiSearch()
         invalidateSmallTsu()
         clearGemmaFloating()
         floatingCursor?.stop()
@@ -6770,6 +6774,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onWindowHidden() {
+        resetEmojiSearch()
         clearGemmaFloating()
         floatingCursor?.stop()
         resetCursorInputSession()
@@ -6792,6 +6797,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onDestroy() {
+        resetEmojiSearch()
         gemmaFloatingCoordinator?.destroy()
         gemmaFloatingWindow?.clear()
         floatingCursor?.destroy()
@@ -7260,6 +7266,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {
+        resetEmojiSearch()
         floatingCursor?.stop()
         cancelCursorOperations()
         dismissKeyboardSelectionPopups()
@@ -8681,7 +8688,58 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
         refreshReconversionUi()
     }
 
+    private var emojiSearchView: CustomSymbolKeyboardView? = null
+    private val emojiSearchConsumedKeyUps = mutableSetOf<Int>()
+    private var emojiSearchBackCallback: OnBackInvokedCallback? = null
+    private var emojiSearchBackRegistered = false
+
+    private fun observeEmojiSearch(view: CustomSymbolKeyboardView, open: Boolean) {
+        if (open) {
+            if (emojiSearchView !== view) emojiSearchView?.closeEmojiSearch()
+            emojiSearchView = view
+        } else if (emojiSearchView === view) {
+            emojiSearchView = null
+        }
+        updateEmojiSearchBackCallback(emojiSearchView != null)
+    }
+
+    private fun updateEmojiSearchBackCallback(register: Boolean) {
+        if (register == emojiSearchBackRegistered) return
+        if (Build.VERSION.SDK_INT < 33) return
+        val dispatcher = window.window?.onBackInvokedDispatcher ?: return
+        if (register && !emojiSearchBackRegistered) {
+            val callback = emojiSearchBackCallback ?: OnBackInvokedCallback {
+                emojiSearchView?.handleEmojiSearchBack()
+            }.also { emojiSearchBackCallback = it }
+            dispatcher.registerOnBackInvokedCallback(OnBackInvokedDispatcher.PRIORITY_OVERLAY, callback)
+            emojiSearchBackRegistered = true
+        } else if (!register && emojiSearchBackRegistered) {
+            emojiSearchBackCallback?.let(dispatcher::unregisterOnBackInvokedCallback)
+            emojiSearchBackRegistered = false
+        }
+    }
+
+    private fun resetEmojiSearch() {
+        emojiSearchView?.closeEmojiSearch()
+        emojiSearchView = null
+        updateEmojiSearchBackCallback(false)
+        emojiSearchConsumedKeyUps.clear()
+    }
+
+    override fun onKeyMultiple(keyCode: Int, count: Int, event: KeyEvent?): Boolean {
+        if (emojiSearchView?.isEmojiSearchOpen == true) {
+            event?.characters?.let { emojiSearchView?.appendEmojiSearchText(it) }
+            return true
+        }
+        return super.onKeyMultiple(keyCode, count, event)
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        // Keep local search ahead of all editor/cursor/composition handling.
+        if (emojiSearchView?.handleEmojiSearchKeyDown(keyCode, event) == true) {
+            emojiSearchConsumedKeyUps.add(keyCode)
+            return true
+        }
         invalidateSmallTsu()
         if ((event?.isPrintingKey == true && !event.isCtrlPressed) || keyCode in intArrayOf(
                 KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL, KeyEvent.KEYCODE_ENTER, KeyEvent.KEYCODE_TAB)) endCursorSelectionForInput()
@@ -9719,6 +9777,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (emojiSearchConsumedKeyUps.remove(keyCode)) return true
         val queuedEvent = event?.let { KeyEvent(it) }
         if (deferCursorInput { if (!onKeyUp(keyCode, queuedEvent) && queuedEvent != null) currentInputConnection?.sendKeyEvent(queuedEvent) }) return true
         if (imeSwitchPopupConsumedKeyUps.remove(keyCode)) return true
@@ -10206,6 +10265,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     private fun applyFloatingModeState(isFloatingMode: Boolean) {
         if (splitController != null || splitLoadingJob?.isActive == true) { splitController?.refresh(); return }
         val mainView = mainLayoutBinding ?: return
+        resetEmojiSearch()
         if (physicalKeyboardEnable.replayCache.isNotEmpty() && physicalKeyboardEnable.replayCache.first()) {
             disableKeyboardLayoutEditMode()
             stopAllOngoingKeyLongPresses()
@@ -19042,6 +19102,7 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
         launch {
             keyboardSymbolViewState.collectLatest { isSymbolKeyboardShow ->
+                if (!isSymbolKeyboardShow.isShown || isSymbolKeyboardShow.mode != SymbolMode.EMOJI) resetEmojiSearch()
                 Timber.d("keyboardSymbolViewState: $isSymbolKeyboardShow")
                 if (splitController != null) {
                     activeSplitSlot?.let(splitInputs::get)?.let { state ->
@@ -24302,6 +24363,8 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
     ) {
         symbolView.apply {
             setLifecycleOwner(this@IMEService)
+            val searchView = this
+            setOnEmojiSearchStateChanged { open -> observeEmojiSearch(searchView, open) }
             setOnReturnToTenKeyButtonClickListener(object : ReturnToTenKeyButtonClickListener {
                 override fun onClick() {
                     activateSplitView(symbolView)
@@ -24384,6 +24447,8 @@ class IMEService : InputMethodService(), LifecycleOwner, InputConnection,
 
         floatingKeyboardBinding?.floatingSymbolKeyboard?.apply {
             setLifecycleOwner(this@IMEService)
+            val searchView = this
+            setOnEmojiSearchStateChanged { open -> observeEmojiSearch(searchView, open) }
             setOnReturnToTenKeyButtonClickListener(object : ReturnToTenKeyButtonClickListener {
                 override fun onClick() {
                     activateSplitView(symbolView)

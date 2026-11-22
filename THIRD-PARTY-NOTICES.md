@@ -79,3 +79,15 @@ verifies archive and asset hashes, derives source-input memberships from the
 hash-verified frozen records, and snapshots upstream notices.
 `python3 tools/classified-dictionaries/prepare.py --check` verifies the bundled
 release assets and notice hashes without network access.
+
+## Japanese emoji search metadata
+
+`symbol_keyboard/src/main/assets/emoji_search/ja.tsv` includes names and keywords
+from Unicode CLDR 48.2 (`common/annotations/ja.xml` and
+`common/annotationsDerived/ja.xml`, https://github.com/unicode-org/cldr/tree/release-48-2).
+These data are redistributed under Unicode-3.0. The complete copyright and
+permission notice is shipped in `emoji_search/NOTICE.txt` in every APK and in
+`tools/emoji_search/upstream/LICENSE`. Source hashes and regeneration instructions
+are in `tools/emoji_search`. Sumire-authored usage concepts use this repository's
+MIT license. Existing bundled emoji dictionary readings and Unicode 17.0 category
+metadata are reused; no font, artwork, or AI model is added by this feature.

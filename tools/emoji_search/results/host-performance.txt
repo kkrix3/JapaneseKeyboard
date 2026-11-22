@@ -1,0 +1,7 @@
+Independent warmed JVM starts: 3; 76 queries x 20 repeats per start
+median_load_ms=26.16528
+median_retained_heap_delta_bytes=1071000.0
+median_p50_ms=0.33721
+median_p95_ms=0.510694
+median_p99_ms=0.908382
+median_allocated_bytes_per_query=3128.0
