@@ -24,7 +24,7 @@ for the repository owner on their own trusted computer and GitHub account.
    only after environment protections and all secrets have been set.
 5. Publish Preview and set it as the fork default branch (dev stays unchanged); enable
    Actions if GitHub requires initial fork activation. Run `Sumire Full Preview CI`
-   manually on `preview` as `kkrix3`. Review the commit and successful tests, then approve
+   manually on `preview` as `kkrix3` with `sign=true` (unchecked by default). Review the commit and successful tests, then approve
    the environment gate. Download `sumire-preview-full-signed` after signature verification.
 
 Do not paste keys/passwords/Base64 into ChatGPT, tickets, logs or repository files. Work
@@ -37,7 +37,8 @@ ordinary tests are not dependent on signing secrets. Do not replace a missing ke
 newly generated one after Preview has been installed.
 
 The secret step runs only on owner-started workflow_dispatch of this repository's preview
-branch, after both verification jobs succeed and the environment gate is approved.
+branch with `sign=true`, after the Preview and upstream suites, APK inspection, API 35 input
+and API 24/34 emoji verification succeed and the environment gate is approved.
 PR, pull_request_target, foreign branch and foreign artifact signing are unsupported.
 The sign job has no source checkout, Gradle build or cache. It downloads only this run's
 named artifact, verifies SHA/commit/package/version and signs using an ephemeral directory

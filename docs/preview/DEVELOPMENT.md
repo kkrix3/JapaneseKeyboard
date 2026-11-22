@@ -111,28 +111,25 @@ Gradle signingConfig is explicitly null. Only the isolated Actions job handles t
 
 ## CI
 
-The only active Preview workflow is `.github/workflows/preview-ci.yml`:
-`Sumire Full Preview CI`. Inherited upstream workflows are retained for reference under
-`.github/upstream-workflows`, so upstream tag-release/sync jobs do not run for Preview.
-Dev and feature retain upstream files unchanged. No Release or upstream PR is created.
+| Sumire Full Preview CI | JVM tests | Emulator tests | APKs |
+| --- | --- | --- | --- |
+| PR targeting `preview` | core, custom_keyboard, selected app regressions, changed library suites and matching app tests | API 35 for input changes, API 24/34 for emoji/font changes. Shared build or CI changes select both. | Inspected unsigned Preview for packaging changes |
+| Manual, `sign=false` (default) | Preview suites | API 35 and API 24/34 | Inspected unsigned Preview |
+| Manual, `compare_upstream=true` | Also run pinned upstream v1.7.133 suites | Same | Also build Full Standard Debug |
+| Owner on `preview`, manual, `sign=true` | Preview and pinned upstream suites | API 35 and API 24/34 | Sign this run's inspected Preview after all checks and Environment approval |
 
-On a Preview push or a PR targeting Preview, the public release and integration variants are tested without secrets:
-custom_keyboard and core suites, selected Full app regression/backup tests, Full Debug and unsigned
-Full Preview. SHA-pinned checkout/setup-java/upload/download actions use contents:read;
-checkout does not persist credentials. Failures do not prevent uploading test reports.
-The upstream validation job is pinned to release v1.7.133 (`005a31c5902002e2f43424174fa8d234bd603c05`); Preview checks out the triggering SHA. Both record the actual checkout SHA.
-The old `feature/custom-haptics` head is not used as evidence for updated dev/preview.
-A separate API 35 emulator job runs real-IME small-tsu and Sumire/QWERTY multi-pointer instrumentation.
-Signing requires both build verification and device-input jobs to succeed.
+To verify a PR's APK before merging, run **Sumire Full Preview CI** on that branch with
+`sign=false`. For a daily installable build select `preview`, set `sign=true`, and follow
+[SIGNING.md](SIGNING.md). A push to `preview` does not repeat the PR or manual build.
+The pinned comparison uses `005a31c5902002e2f43424174fa8d234bd603c05`; Preview tests the
+event SHA (the merge commit for PRs). PR path selection is in `scripts/preview/pr_checks.py`.
 
-For manual signed runs, make `preview` the fork's GitHub default branch after publication.
-This does not change dev or its upstream-tracking role. GitHub requires workflow_dispatch
-workflows to exist on the default branch:
-https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow
-
-After the owner enables Actions, push CI builds unsigned artifacts. After configuring
-SIGNING.md, the owner uses Actions -> Sumire Full Preview CI -> Run workflow -> preview.
-A new signed run builds and tests again; it never signs an externally supplied artifact.
+For a standalone Feature APK, manually dispatch **Sumire Full Feature CI** on its prepared
+`verify/**` branch. Leave `sign` off for verification or select it for an installable APK
+after the usual checks and `feature-signing` approval. The workflow at the selected ref
+controls its triggers. Existing verification branches keep their own workflow version.
+Feature provenance checks require the workflow to match the recorded infrastructure SHA,
+so adopt trigger changes in the build infrastructure before preparing a new verification ref.
 
 ## Version codes
 
