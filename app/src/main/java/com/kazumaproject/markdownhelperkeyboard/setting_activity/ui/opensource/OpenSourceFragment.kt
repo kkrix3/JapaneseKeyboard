@@ -280,6 +280,9 @@ class OpenSourceFragment : Fragment() {
         ).forEach { (name, id) ->
             entries += LicenseEntry(name) { showDictionaryLicense(name, "licenses/$id.html") }
         }
+        entries += LicenseEntry("Noto Color Emoji (Google)") {
+            showDictionaryLicense("Noto Color Emoji — SIL OFL 1.1", "licenses/noto-color-emoji.html")
+        }
         return entries
     }
 

@@ -1946,4 +1946,8 @@ ABC abc 0123456789　ＡＢＣ　１２３４５
     <string name="input_character_pop_distance">発生位置の基準距離（dp・0でキー中心）</string>
     <string name="input_character_pop_scale_easing">拡大の補間関数</string>
     <string name="input_character_pop_fade_easing">フェードの補間関数</string>
+    <string name="emoji_rendering_style_title">絵文字の表示</string>
+    <string name="emoji_rendering_style_summary">Sumire内の絵文字表示を変更します。入力先アプリの表示は変わりません。</string>
+    <string name="emoji_rendering_style_device">端末標準</string>
+    <string name="emoji_rendering_style_google">Google絵文字</string>
 </resources>

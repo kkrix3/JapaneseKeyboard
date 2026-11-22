@@ -3,6 +3,7 @@ package com.kazumaproject.symbol_keyboard
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.util.TypedValue
@@ -24,10 +25,20 @@ class SymbolAdapter :
 
     private var keyboardFontSnapshot = KeyboardFontApplicator.processSnapshot
     private var useKeyboardFont = false
+    private var emojiTypeface: Typeface? = null
+    private var appearanceRevision = 0L
+
+    fun setEmojiTypeface(typeface: Typeface?) {
+        if (emojiTypeface === typeface) return
+        emojiTypeface = typeface
+        appearanceRevision++
+        notifyDataSetChanged()
+    }
 
     fun setKeyboardFont(snapshot: KeyboardFontSnapshot, useForCurrentMode: Boolean) {
         keyboardFontSnapshot = snapshot
         useKeyboardFont = useForCurrentMode
+        appearanceRevision++
         notifyDataSetChanged()
     }
 
@@ -95,6 +106,7 @@ class SymbolAdapter :
         RecyclerView.ViewHolder(itemView) {
         val symbolTextView: MaterialTextView = itemView.findViewById(R.id.symbol_text)
         val originalTextColors = symbolTextView.textColors
+        val originalEmojiCompatEnabled = symbolTextView.isEmojiCompatEnabled
         val skinToneIndicator: View = itemView.findViewById(R.id.skin_tone_indicator)
 
         init {
@@ -128,14 +140,20 @@ class SymbolAdapter :
         } catch (e: IndexOutOfBoundsException) {
             null
         }
-        if (symbol != null) {
-            holder.symbolTextView.text = symbol
-            holder.symbolTextView.textSize = symbolTextSize
-            KeyboardFontApplicator.apply(
-                holder.symbolTextView,
-                if (useKeyboardFont) keyboardFontSnapshot
-                else keyboardFontSnapshot.copy(typeface = null)
+        // Automatic EmojiSpans must not override the explicit Google font. Rebinding
+        // the raw String also clears spans when returning to the original policy.
+        holder.symbolTextView.isEmojiCompatEnabled =
+            if (!useKeyboardFont && emojiTypeface != null) false else holder.originalEmojiCompatEnabled
+        KeyboardFontApplicator.apply(
+            holder.symbolTextView,
+            keyboardFontSnapshot.copy(
+                typeface = if (useKeyboardFont) keyboardFontSnapshot.typeface else emojiTypeface,
+                revision = appearanceRevision,
             )
+        )
+        holder.symbolTextView.text = symbol ?: ""
+        if (symbol != null) {
+            holder.symbolTextView.textSize = symbolTextSize
 
             // ★追加: テキストカラーの適用
             holder.symbolTextView.setTextColor(themeTextColor?.let(android.content.res.ColorStateList::valueOf) ?: holder.originalTextColors)
@@ -155,12 +173,6 @@ class SymbolAdapter :
                 horizontalMarginPx, verticalMarginPx, horizontalMarginPx, verticalMarginPx
             )
         } else {
-            holder.symbolTextView.text = ""
-            KeyboardFontApplicator.apply(
-                holder.symbolTextView,
-                if (useKeyboardFont) keyboardFontSnapshot
-                else keyboardFontSnapshot.copy(typeface = null)
-            )
             holder.skinToneIndicator.visibility = View.GONE
         }
     }

@@ -22,6 +22,7 @@ import com.kazumaproject.custom_keyboard.data.SumireFlickInputMode
 import com.kazumaproject.custom_keyboard.data.TfbiFlickRotation
 import com.kazumaproject.custom_keyboard.data.buildEvenCircularRanges
 import com.kazumaproject.domain.EmojiSkinToneSupport
+import com.kazumaproject.symbol_keyboard.EmojiRenderingStyle
 import com.kazumaproject.markdownhelperkeyboard.converter.engine.PredictionConfig
 import com.kazumaproject.markdownhelperkeyboard.converter.date.DateCandidateConfig
 import com.kazumaproject.markdownhelperkeyboard.converter.date.DateCandidateFormat
@@ -1850,6 +1851,12 @@ object AppPreference {
         set(value) = preferences.edit {
             // Enumを文字列として保存
             it.putString(SYMBOL_MODE_PREFERENCE.first, value.name)
+        }
+
+    var emoji_rendering_style_preference: EmojiRenderingStyle
+        get() = EmojiRenderingStyle.read(preferences)
+        set(value) = preferences.edit {
+            it.putString(EmojiRenderingStyle.PREFERENCE_KEY, value.preferenceValue)
         }
 
     var default_emoji_skin_tone_preference: String

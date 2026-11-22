@@ -1,0 +1,48 @@
+// Reproducible build input, packaged in the APK. No runtime downloads.
+abstract class PrepareGoogleEmojiFont extends DefaultTask {
+    @Input abstract Property<String> getSourceUrl()
+    @Input abstract Property<String> getExpectedSha256()
+    @OutputDirectory abstract DirectoryProperty getOutputDirectory()
+
+    private static String sha256(File file) {
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        file.withInputStream { input ->
+            byte[] buffer = new byte[65536]
+            int count
+            while ((count = input.read(buffer)) != -1) digest.update(buffer, 0, count)
+        }
+        return digest.digest().encodeHex().toString()
+    }
+
+    @TaskAction void prepare() {
+        File font = outputDirectory.file('font/noto_color_emoji.ttf').get().asFile
+        if (font.isFile() && sha256(font) == expectedSha256.get()) return
+        font.parentFile.mkdirs()
+        File partial = new File(font.parentFile, font.name + '.download')
+        try {
+            def connection = new URI(sourceUrl.get()).toURL().openConnection()
+            connection.connectTimeout = 30000
+            connection.readTimeout = 60000
+            connection.getInputStream().withCloseable { input ->
+                partial.withOutputStream { output -> output << input }
+            }
+            if (sha256(partial) != expectedSha256.get()) {
+                throw new GradleException('Noto Color Emoji SHA-256 mismatch; refusing to package it')
+            }
+            java.nio.file.Files.move(partial.toPath(), font.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        } finally {
+            partial.delete()
+        }
+    }
+}
+
+def googleEmojiFont = tasks.register('prepareGoogleEmojiFont', PrepareGoogleEmojiFont) {
+    sourceUrl.set('https://raw.githubusercontent.com/googlefonts/noto-emoji/99701e07d3d1fe1bdbcdb14964547f0fd592966f/2D/fonts/NotoColorEmoji.ttf')
+    expectedSha256.set('15671215ab769fdc7162a045d56fd7d7e477c51b04e6b3c761d914d8fdd6cc44')
+    outputDirectory.set(layout.buildDirectory.dir('generated/googleEmoji/res'))
+}
+
+androidComponents.onVariants(androidComponents.selector().all()) { variant ->
+    variant.sources.res.addGeneratedSourceDirectory(googleEmojiFont, { task -> task.outputDirectory })
+}
