@@ -1,11 +1,18 @@
 name: Sumire Full Preview CI
 
 on:
-  push:
-    branches: [preview]
   pull_request:
     branches: [preview]
   workflow_dispatch:
+    inputs:
+      sign:
+        description: 'Preview鍵で署名する（全検証とEnvironment承認が必要）'
+        type: boolean
+        default: false
+      compare_upstream:
+        description: '固定した本家リリースも比較ビルドする（署名時は常に実行）'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -15,14 +22,39 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  checks:
+    name: Select Preview checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      apk: ${{ steps.pr.outputs.apk }}
+      device_input: ${{ steps.pr.outputs.device_input }}
+      emoji_rendering: ${{ steps.pr.outputs.emoji_rendering }}
+      library_tasks: ${{ steps.pr.outputs.library_tasks }}
+      app_tests: ${{ steps.pr.outputs.app_tests }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+          sparse-checkout: scripts/preview
+      - id: pr
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/preview/pr_checks.py
+      - name: Record manual verification scope
+        if: github.event_name == 'workflow_dispatch'
+        run: echo 'Running APK verification and all three emulator configurations.' >> "$GITHUB_STEP_SUMMARY"
+
   verify:
+    needs: checks
     name: Full ${{ matrix.target }}
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        target: [upstream, preview]
+        target: ${{ fromJSON((inputs.sign || inputs.compare_upstream) && '["upstream","preview"]' || '["preview"]') }}
     env:
       ZENZ_DEBUG_NATIVE_ABIS: arm64-v8a
       ZENZ_RELEASE_NATIVE_ABIS: arm64-v8a,x86_64
@@ -51,7 +83,7 @@ jobs:
             "platforms;android-37.0" "build-tools;36.0.0" \
             "ndk;29.0.14206865" "cmake;3.22.1"
       - name: Assign Preview versionCode
-        if: matrix.target == 'preview'
+        if: matrix.target == 'preview' && (github.event_name == 'workflow_dispatch' || needs.checks.outputs.apk == 'true')
         shell: bash
         run: |
           set -euo pipefail
@@ -60,10 +92,14 @@ jobs:
           test "$code" -gt 100000000
           test "$code" -le 2100000000
           echo "PREVIEW_VERSION_CODE=$code" >> "$GITHUB_ENV"
-      - name: Keyboard unit tests
+      - name: Keyboard and changed library unit tests
         id: keyboard
         continue-on-error: true
-        run: bash ./gradlew :custom_keyboard:testDebugUnitTest --no-daemon --console=plain --max-workers=2
+        env:
+          LIBRARY_TASKS: ${{ needs.checks.outputs.library_tasks }}
+        run: |
+          read -ra tasks <<< "$LIBRARY_TASKS"
+          bash ./gradlew :custom_keyboard:testDebugUnitTest "${tasks[@]}" --no-daemon --console=plain --max-workers=2
       - name: Core unit tests
         id: core
         continue-on-error: true
@@ -96,8 +132,13 @@ jobs:
         id: preview-app
         continue-on-error: true
         if: matrix.target == 'preview'
+        env:
+          APP_TESTS: ${{ needs.checks.outputs.app_tests }}
         run: |
-          bash ./gradlew :app:testFullStandardDebugUnitTest \
+          read -ra tests <<< "$APP_TESTS"
+          filters=()
+          for suite in "${tests[@]}"; do filters+=(--tests "*.$suite"); done
+          bash ./gradlew :app:testFullStandardDebugUnitTest "${filters[@]}" \
             --tests '*Independent*Test' \
             --tests '*SmallTsu*' \
             --tests '*KeyboardFontApplicatorTest' \
@@ -122,10 +163,8 @@ jobs:
         with:
           name: sumire-${{ matrix.target }}-test-reports
           path: |
-            custom_keyboard/build/test-results/
-            custom_keyboard/build/reports/tests/
-            core/build/test-results/
-            core/build/reports/tests/
+            */build/test-results/testDebugUnitTest/
+            */build/reports/tests/testDebugUnitTest/
             app/build/test-results/testFullStandardDebugUnitTest/
             app/build/reports/tests/testFullStandardDebugUnitTest/
           retention-days: 14
@@ -134,7 +173,7 @@ jobs:
         if: matrix.target == 'upstream'
         run: bash ./gradlew :app:assembleFullStandardDebug --no-daemon --console=plain --max-workers=2
       - name: Build unsigned Full Preview
-        if: matrix.target == 'preview'
+        if: matrix.target == 'preview' && (github.event_name == 'workflow_dispatch' || needs.checks.outputs.apk == 'true')
         run: |
           bash ./gradlew :app:assembleFullStandardPreview \
             -PpreviewVersionCode="$PREVIEW_VERSION_CODE" \
@@ -152,7 +191,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Upload unsigned Full Preview
-        if: matrix.target == 'preview'
+        if: matrix.target == 'preview' && (github.event_name == 'workflow_dispatch' || needs.checks.outputs.apk == 'true')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sumire-preview-full-unsigned
@@ -162,7 +201,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Upload APK inspection
-        if: matrix.target == 'preview'
+        if: matrix.target == 'preview' && (github.event_name == 'workflow_dispatch' || needs.checks.outputs.apk == 'true')
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: sumire-preview-apk-inspection
@@ -178,6 +217,8 @@ jobs:
         run: test "$KEYBOARD_RESULT" = success && test "$CORE_RESULT" = success && test "$APP_RESULT" = success
 
   device-input:
+    needs: checks
+    if: github.event_name == 'workflow_dispatch' || needs.checks.outputs.device_input == 'true'
     name: API 35 real IME and multi-pointer input
     runs-on: ubuntu-24.04
     timeout-minutes: 90
@@ -240,6 +281,8 @@ jobs:
           retention-days: 14
 
   emoji-rendering:
+    needs: checks
+    if: github.event_name == 'workflow_dispatch' || needs.checks.outputs.emoji_rendering == 'true'
     name: Emoji rendering API ${{ matrix.api }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
@@ -288,9 +331,9 @@ jobs:
   sign:
     name: Sign trusted Full Preview
     needs: [verify, device-input, emoji-rendering]
-    # Normal push/PR CI never accesses signing secrets.
+    # Signing requires the complete manual verification matrix from this run.
     if: >-
-      github.event_name == 'workflow_dispatch' &&
+      github.event_name == 'workflow_dispatch' && inputs.sign &&
       github.repository == 'kkrix3/JapaneseKeyboard' &&
       github.ref == 'refs/heads/preview' &&
       github.actor == 'kkrix3' &&

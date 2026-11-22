@@ -1,9 +1,5 @@
 name: Sumire Full Feature CI
 on:
-  push:
-    branches: ['verify/**']
-  pull_request:
-    branches: ['verify/**']
   workflow_dispatch:
     inputs:
       sign:
