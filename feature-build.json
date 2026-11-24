@@ -1,0 +1,33 @@
+{
+  "baseSha": "e3cc93537c1c0912cb451b39133c270d39a10b9b",
+  "featureRef": "feature/emoji-semantic-search",
+  "featureSha": "8d4d9eab98b3c70ed2414d7bfa71e03f137b0b1f",
+  "infrastructureRef": "build/feature-apk-v1.7.133-emoji-search",
+  "infrastructureSha": "cc3f0813bef480a24f9cda6bbbadb59844694a55",
+  "appTestFilters": [
+    "*Independent*Test",
+    "*SmallTsu*",
+    "*KeyboardFontApplicatorTest",
+    "*BundledEmojiCategoryTest",
+    "*VibrationTimingPolicyTest",
+    "*VibrationShortcutTest",
+    "*ShortcutActiveStateResolverTest",
+    "*ShortcutRepositoryVibrationTest",
+    "*ShortcutAdapterThemeColorTest",
+    "*SuggestionAdapterShortcutEntryClickTest",
+    "*ShortcutToolbarPresentationPolicyTest",
+    "*CustomHapticSettingsEntryPointTest",
+    "*CustomHapticBackupCompatibilityTest",
+    "*KeyboardLayout*Test",
+    "*Backup*Test",
+    "*Cursor*Test",
+    "*FlickPreview*Test",
+    "*MigrationTest",
+    "*Setting*Test",
+    "*BundledEmojiSearchTest"
+  ],
+  "deviceTestClasses": [
+    "com.kazumaproject.markdownhelperkeyboard.SmallTsuImeDeviceTest",
+    "com.kazumaproject.markdownhelperkeyboard.EmojiSearchImeDeviceTest"
+  ]
+}

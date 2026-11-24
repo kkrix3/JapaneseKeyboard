@@ -37,7 +37,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.concurrent.TimeUnit
 
-/** Real IME/editor/OS touch test; run only in an isolated preview.testbench emulator. */
+/** Real IME/editor/OS touch test; run only in an isolated Preview or Feature testbench emulator. */
 @RunWith(AndroidJUnit4::class)
 class EmojiSearchImeDeviceTest {
     private val ins = InstrumentationRegistry.getInstrumentation()
@@ -118,7 +118,9 @@ class EmojiSearchImeDeviceTest {
 
     @Test fun searchKeepsTheRealEditorPrivateCommitsOnlySelectedEmojiAndSurvivesRecreation() {
         val context = ins.targetContext
-        check(context.packageName.endsWith(".preview.testbench")) { "Use -PpreviewDeviceTest=true" }
+        check(context.packageName.endsWith(".preview.testbench") || context.packageName.endsWith(".feature.testbench")) {
+            "Use an isolated Preview or Feature testbench"
+        }
         val component = "${context.packageName}/com.kazumaproject.markdownhelperkeyboard.ime_service.IMEService"
         val oldIme = shell("settings get secure default_input_method").trim()
         val prefs = PreferenceManager.getDefaultSharedPreferences(context)
